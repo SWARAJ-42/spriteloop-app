@@ -1,0 +1,258 @@
+@import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap");
+
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Font */
+body {
+  font-family: "Press Start 2P", system-ui, -apple-system, sans-serif;
+}
+
+/* Retro Theme Variables */
+:root {
+  --background: 230 40% 4%;
+  --foreground: 200 100% 85%;
+  --card: 230 35% 8%;
+  --card-foreground: 200 100% 85%;
+  --popover: 230 35% 8%;
+  --popover-foreground: 200 100% 85%;
+  --primary: 190 100% 55%;
+  --primary-foreground: 230 40% 4%;
+  --secondary: 275 70% 55%;
+  --secondary-foreground: 0 0% 100%;
+  --muted: 230 25% 12%;
+  --muted-foreground: 210 30% 50%;
+  --accent: 45 100% 60%;
+  --accent-foreground: 230 40% 4%;
+  --destructive: 0 85% 55%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 190 80% 45%;
+  --input: 230 25% 12%;
+  --ring: 190 100% 55%;
+  --radius: 0rem;
+}
+
+/* Map Retro Variables to Tailwind Tokens */
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+}
+
+/* Base Layer */
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* --- KEEP ALL YOUR CUSTOM RETRO STYLES BELOW --- */
+
+/* Scanline overlay */
+.scanline-overlay {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 200, 255, 0.015) 2px,
+    rgba(0, 200, 255, 0.015) 4px
+  );
+  pointer-events: none;
+}
+
+/* Pixel border utility */
+.pixel-border {
+  box-shadow:
+    4px 0 0 0 hsl(190 100% 55%),
+    -4px 0 0 0 hsl(190 100% 55%),
+    0 4px 0 0 hsl(190 100% 55%),
+    0 -4px 0 0 hsl(190 100% 55%);
+}
+
+
+/* Glow effects */
+.glow-cyan {
+  text-shadow: 0 0 10px hsl(190 100% 55%), 0 0 20px hsl(190 100% 55%), 0 0 40px hsl(190 100% 55% / 0.5);
+}
+
+.glow-purple {
+  text-shadow: 0 0 10px hsl(275 70% 55%), 0 0 20px hsl(275 70% 55%);
+}
+
+.glow-gold {
+  text-shadow: 0 0 10px hsl(45 100% 60%), 0 0 20px hsl(45 100% 60%);
+}
+
+.glow-box-cyan {
+  box-shadow: 0 0 15px hsl(190 100% 55% / 0.3), 0 0 30px hsl(190 100% 55% / 0.1);
+}
+
+.glow-box-purple {
+  box-shadow: 0 0 15px hsl(275 70% 55% / 0.3), 0 0 30px hsl(275 70% 55% / 0.1);
+}
+
+/* Blink animation */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.animate-blink {
+  animation: blink 1s step-end infinite;
+}
+
+/* Float animation */
+@keyframes pixel-float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+.animate-pixel-float {
+  animation: pixel-float 3s ease-in-out infinite;
+}
+
+/* Space grid background */
+.space-grid {
+  background-image:
+    linear-gradient(hsl(190 100% 55% / 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(190 100% 55% / 0.04) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Nebula gradient backgrounds */
+.nebula-bg {
+  background:
+    radial-gradient(ellipse at 20% 50%, hsl(275 70% 25% / 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, hsl(190 100% 30% / 0.1) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, hsl(275 50% 20% / 0.1) 0%, transparent 50%);
+}
+
+.nebula-bg-alt {
+  background:
+    radial-gradient(ellipse at 70% 30%, hsl(190 80% 25% / 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 30% 70%, hsl(275 60% 20% / 0.12) 0%, transparent 50%);
+}
+
+/* CRT effect */
+.crt-effect {
+  position: relative;
+}
+
+.crt-effect::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(0, 0, 0, 0.06) 3px,
+    rgba(0, 0, 0, 0.06) 4px
+  );
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Star twinkle */
+@keyframes twinkle {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 1; }
+}
+
+.animate-twinkle {
+  animation: twinkle 2s ease-in-out infinite;
+}
+
+/* Comet animation */
+@keyframes comet {
+  0% { transform: translateX(-100px) translateY(-100px); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateX(calc(100vw + 100px)) translateY(calc(50vh)); opacity: 0; }
+}
+
+.animate-comet {
+  animation: comet 6s linear infinite;
+}
+
+/* Orbit animation */
+@keyframes orbit {
+  0% { transform: rotate(0deg) translateX(40px) rotate(0deg); }
+  100% { transform: rotate(360deg) translateX(40px) rotate(-360deg); }
+}
+
+.animate-orbit {
+  animation: orbit 8s linear infinite;
+}
+
+/* Pulse glow */
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 5px hsl(190 100% 55% / 0.3); }
+  50% { box-shadow: 0 0 20px hsl(190 100% 55% / 0.6), 0 0 40px hsl(190 100% 55% / 0.2); }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+/* =========================
+   GLOBAL SCROLLBAR STYLING
+   ========================= */
+
+/* Chrome, Edge, Safari */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(230 35% 8%); /* matches your card bg */
+  border-left: 2px solid hsl(190 80% 45%);
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    hsl(190 100% 55%),
+    hsl(275 70% 55%)
+  );
+  border: 2px solid hsl(230 40% 4%);
+  box-shadow:
+    0 0 6px hsl(190 100% 55% / 0.6),
+    0 0 12px hsl(275 70% 55% / 0.4);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    180deg,
+    hsl(190 100% 65%),
+    hsl(275 70% 65%)
+  );
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(190 100% 55%) hsl(230 35% 8%);
+}
