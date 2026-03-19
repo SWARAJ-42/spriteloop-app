@@ -14,7 +14,6 @@ services:
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile
     container_name: project_backend
     restart: always
     env_file:
@@ -23,21 +22,34 @@ services:
       - postgres
     volumes:
       - ./backend:/app
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
 
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
     container_name: project_frontend
     restart: always
     env_file:
       - ./frontend/.env
     depends_on:
       - backend
+    expose:
+      - "3000"
+
+  nginx:
+    image: nginx:latest
+    container_name: project_nginx
+    restart: always
+    depends_on:
+      - frontend
+      - backend
     ports:
-      - "3000:3000"
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/dev.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
 
 volumes:
   postgres_data:
