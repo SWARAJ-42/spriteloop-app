@@ -1,0 +1,269 @@
+from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
+from fastapi.responses import Response
+from pydantic import BaseModel
+import os
+import shutil
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Optional
+import base64
+import io
+from PIL import Image
+from pathlib import Path
+
+from app.api.deps import get_current_user
+from app.db.models import Project, Generation, User
+from app.db.session import get_db
+from app.repo.preprocesssprite import preprocess_sprite
+from app.repo.inference import generate_sprite
+from app.repo.promptazure import generate_prompt_bytes
+from app.repo.poseCorrection import pose_correct_bytes
+from app.repo.postprocesspixalated import process_webp_bytes as pixelate_webp
+from app.repo.postprocessremovebg import process_webp as removebg_webp
+
+
+router = APIRouter(prefix="/main", tags=["Generation"])
+
+
+# ─────────────────────────────────────────────
+# Paths
+# ─────────────────────────────────────────────
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+STATIC_DIR = BASE_DIR / "static"
+
+
+# ─────────────────────────────────────────────
+# Get User Credits
+# ─────────────────────────────────────────────
+@router.get("/credits")
+async def get_user_credits(
+    db: AsyncSession = Depends(get_db),
+    firebase_user=Depends(get_current_user),
+):
+
+    uid = firebase_user["uid"]
+
+    result = await db.execute(select(User).where(User.firebase_uid == uid))
+    user = result.scalar_one()
+
+    return {"credits_remaining": user.credits_remaining}
+
+
+# ─────────────────────────────────────────────
+# Phase 1 – Pre Generate
+# ─────────────────────────────────────────────
+@router.post("/pre-generate")
+async def pre_generate(
+    file: UploadFile = File(...),
+    pose_correction: str = Form(...),
+    animation_type: str = Form(...),
+    preprocess_prompt: Optional[str] = Form(None),
+    db: AsyncSession = Depends(get_db),
+    firebase_user=Depends(get_current_user),
+):
+
+    print("User:", firebase_user["uid"])
+    print("Received file:", file.filename)
+    print("animation_type:", animation_type)
+    print("Pose correction:", pose_correction)
+    print("Prompt:", preprocess_prompt)
+
+    if file.content_type not in ["image/png", "image/jpeg"]:
+        raise HTTPException(status_code=400, detail="Only PNG/JPG allowed")
+
+    image_bytes = await file.read()
+
+    if pose_correction == "true":
+        uid = firebase_user["uid"]
+
+        result = await db.execute(select(User).where(User.firebase_uid == uid))
+        user = result.scalar_one()
+
+        if user.credits_remaining <= 0:
+            return {"success": False, "error": "No credits remaining"}
+
+        user.credits_remaining -= 5
+        await db.commit()
+
+        image_bytes = pose_correct_bytes(image_bytes, animation_type)
+
+    processed_bytes = preprocess_sprite(image_bytes, pixel_art=True)
+
+    return Response(content=processed_bytes, media_type="image/png")
+
+
+# ─────────────────────────────────────────────
+# Phase 2 – Generate Animation
+# ─────────────────────────────────────────────
+
+class GenerateRequest(BaseModel):
+    image_base64: str
+    animation_type: str
+    additional_prompt: str
+    post_process: bool
+
+
+@router.post("/generate")
+async def generate_animation(
+    req: GenerateRequest,
+    db: AsyncSession = Depends(get_db),
+    firebase_user=Depends(get_current_user),
+):
+
+    uid = firebase_user["uid"]
+
+    result = await db.execute(select(User).where(User.firebase_uid == uid))
+    user = result.scalar_one()
+
+    if user.credits_remaining <= 0:
+        return {"success": False, "error": "No credits remaining"}
+
+    user.credits_remaining -= 40
+    await db.commit()
+
+    image_bytes = base64.b64decode(req.image_base64)
+
+    animation_prompt = generate_prompt_bytes(
+        image_bytes,
+        req.animation_type,
+        "PBmcK7uc",
+        req.additional_prompt
+    )
+
+    webp_base64 = generate_sprite(
+        image_base64=req.image_base64,
+        prompt=animation_prompt,
+        lora_name=f"gamesprite_2d_{req.animation_type}163.safetensors",
+        animation_type=req.animation_type,
+    )
+
+    webp_bytes = base64.b64decode(webp_base64)
+
+    if req.post_process:
+        webp_bytes = pixelate_webp(webp_bytes)
+        # webp_bytes = removebg_webp(webp_bytes)
+
+    img = Image.open(io.BytesIO(webp_bytes))
+
+    frames = []
+
+    try:
+        while True:
+            frame = img.copy().convert("RGBA")
+
+            buf = io.BytesIO()
+            frame.save(buf, format="PNG")
+
+            frames.append(base64.b64encode(buf.getvalue()).decode())
+
+            img.seek(len(frames))
+    except EOFError:
+        pass
+
+    return {"success": True, "frames": frames}
+
+
+# ─────────────────────────────────────────────
+# Helper — Save frames locally
+# ─────────────────────────────────────────────
+
+def save_generation_locally(
+    project_id: int,
+    generation_id: int,
+    job_id: str,
+    selected_frames: list[int],
+):
+
+    job_folder = STATIC_DIR / "animations" / "frames"
+
+    save_folder = STATIC_DIR / str(project_id) / str(generation_id)
+
+    save_folder.mkdir(parents=True, exist_ok=True)
+
+    saved_paths = []
+
+    for idx in selected_frames:
+
+        src = job_folder / f"frame_{idx:03d}.png"
+        dst = save_folder / f"frame_{idx:03d}.png"
+
+        shutil.copy(src, dst)
+
+        saved_paths.append(str(dst))
+
+    return saved_paths
+
+
+# ─────────────────────────────────────────────
+# Phase 3 – Save Animation
+# ─────────────────────────────────────────────
+@router.post("/save")
+async def save_animation(
+    job_id: str = Form(...),
+    project_id: int = Form(...),
+    gif: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    firebase_user=Depends(get_current_user),
+):
+
+    uid = firebase_user["uid"]
+
+    # get user
+    result = await db.execute(
+        select(User).where(User.firebase_uid == uid)
+    )
+    user = result.scalar_one()
+
+    # verify project ownership
+    result = await db.execute(
+        select(Project).where(
+            Project.id == project_id,
+            Project.user_id == user.id
+        )
+    )
+    project = result.scalar_one()
+
+    # create generation row
+    generation = Generation(
+        project_id=project_id,
+        name=f"generation_{job_id}",
+        generation_type="animation",
+        asset_path=""
+    )
+
+    db.add(generation)
+    await db.commit()
+    await db.refresh(generation)
+
+    generation_dir = (
+        STATIC_DIR
+        / "users"
+        / str(user.id)
+        / "projects"
+        / str(project_id)
+        / "generations"
+        / str(generation.id)
+    )
+
+    generation_dir.mkdir(parents=True, exist_ok=True)
+
+    gif_path = generation_dir / "animation.gif"
+
+    content = await gif.read()
+
+    with open(gif_path, "wb") as f:
+        f.write(content)
+
+    # store RELATIVE path instead of absolute
+    relative_path = gif_path.relative_to(STATIC_DIR)
+
+    generation.asset_path = str(relative_path)
+
+    await db.commit()
+
+    return {
+        "success": True,
+        "generation_id": generation.id,
+        "saved_asset_url": f"/static/{relative_path}",
+    }
