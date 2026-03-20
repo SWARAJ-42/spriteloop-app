@@ -22,6 +22,8 @@ export interface PreGenerateRequest {
 
 export async function preGenerate(req: PreGenerateRequest): Promise<Blob> {
 
+  console.log(API_URL)
+
   const token = await getToken();
 
   const formData = new FormData();

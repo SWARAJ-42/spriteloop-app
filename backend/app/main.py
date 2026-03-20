@@ -16,6 +16,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "http://localhost"
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -45,7 +46,7 @@ async def startup():
         await conn.run_sync(Base.metadata.create_all)
 
 # 5. Include your routers
-app.include_router(auth.router)
-app.include_router(preprocess.router)
-app.include_router(projects.router)
-app.include_router(generations.router)
+app.include_router(auth.router, prefix="/api")
+app.include_router(preprocess.router, prefix="/api")
+app.include_router(projects.router, prefix="/api")
+app.include_router(generations.router, prefix="/api")
