@@ -1,25 +1,18 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, delete
-from pathlib import Path
 
 from app.api.deps import get_current_user
 from app.db.session import AsyncSessionLocal
 from app.db.models import Project, User, Generation
+
+from app.services.azure_blob import generate_sas_url, blob_service_client
 
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
 
 # ─────────────────────────────────────────────
-# Paths
-# ─────────────────────────────────────────────
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-STATIC_DIR = BASE_DIR / "static"
-
-
-# ─────────────────────────────────────────────
-# Create Project
+# Create Project (unchanged)
 # ─────────────────────────────────────────────
 @router.post("/")
 async def create_project(
@@ -53,7 +46,7 @@ async def create_project(
 
 
 # ─────────────────────────────────────────────
-# Get Projects
+# Get Projects (SAS URLs instead of static)
 # ─────────────────────────────────────────────
 @router.get("/")
 async def get_projects(firebase_user=Depends(get_current_user)):
@@ -90,17 +83,11 @@ async def get_projects(firebase_user=Depends(get_current_user)):
             for gen in generations[:3]:
 
                 if gen.asset_path:
-
-                    # asset_path stored as relative path
-                    rel_path = Path(gen.asset_path)
-
-                    full_path = STATIC_DIR / rel_path
-
-                    if full_path.exists():
-
-                        gif_url = f"http://localhost:8000/static/{rel_path.as_posix()}"
-
-                        images.append(gif_url)
+                    try:
+                        sas_url = generate_sas_url(gen.asset_path)
+                        images.append(sas_url)
+                    except Exception:
+                        pass  # blob missing, skip
 
             response.append(
                 {
@@ -115,7 +102,7 @@ async def get_projects(firebase_user=Depends(get_current_user)):
 
 
 # ─────────────────────────────────────────────
-# Delete Project
+# Delete Project (Azure + DB)
 # ─────────────────────────────────────────────
 @router.delete("/{project_id}")
 async def delete_project(
@@ -127,36 +114,46 @@ async def delete_project(
 
     async with AsyncSessionLocal() as session:
 
+        # get user
         result = await session.execute(
             select(User).where(User.firebase_uid == uid)
         )
         user = result.scalar_one()
 
-        # get generations first to delete files
+        # verify project ownership
+        result = await session.execute(
+            select(Project).where(
+                Project.id == project_id,
+                Project.user_id == user.id
+            )
+        )
+        project = result.scalar_one_or_none()
+
+        if not project:
+            raise HTTPException(status_code=403, detail="Unauthorized")
+
+        # fetch generations
         gen_result = await session.execute(
             select(Generation).where(Generation.project_id == project_id)
         )
 
         generations = gen_result.scalars().all()
 
+        container_client = blob_service_client.get_container_client("generations")
+
+        # delete all blobs
         for gen in generations:
 
             if gen.asset_path:
+                try:
+                    blob_client = container_client.get_blob_client(gen.asset_path)
+                    blob_client.delete_blob()
+                except Exception:
+                    pass  # ignore missing blobs
 
-                rel_path = Path(gen.asset_path)
-                full_path = STATIC_DIR / rel_path
-
-                folder = full_path.parent
-
-                if folder.exists():
-                    import shutil
-                    shutil.rmtree(folder)
-
+        # delete project (cascade will handle generations if configured)
         await session.execute(
-            delete(Project).where(
-                Project.id == project_id,
-                Project.user_id == user.id
-            )
+            delete(Project).where(Project.id == project_id)
         )
 
         await session.commit()

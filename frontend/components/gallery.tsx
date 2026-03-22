@@ -125,7 +125,7 @@ export function Gallery() {
         </div>
 
         {/* Community stats */}
-        <Card font="retro" className="mt-4 border-border bg-card">
+        {/* <Card font="retro" className="mt-4 border-border bg-card">
           <CardContent className="flex flex-wrap items-center justify-center gap-8 p-6 md:justify-between">
             <span className="retro text-[9px] text-muted-foreground">
               JOIN 50,000+ SPACE EXPLORERS
@@ -143,7 +143,7 @@ export function Gallery() {
               )}
             </div>
           </CardContent>
-        </Card>
+        </Card> */}
       </div>
     </section>
   );

@@ -111,7 +111,7 @@ function FrameGrid({
 
   return (
     <div className="flex-1 relative">
-      <div className="grid grid-cols-4 gap-2 overflow-y-auto max-h-[60vh] pr-1">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4 gap-2 overflow-y-auto max-h-[40vh] lg:max-h-[70vh] pr-1">
         {frameList.map((item, i) => {
           const isKept = keptUids.has(item.uid);
           const isDragging = dragUid.current === item.uid;
@@ -451,11 +451,11 @@ export function PhaseFrames({
         />
       )}
 
-      <div className="flex w-6xl">
+<div className="flex flex-col lg:flex-row w-full max-w-6xl gap-4 lg:gap-6 px-4 lg:px-0">
         {/* Left — Preview + controls */}
         <Card
           font="retro"
-          className="flex-1 border-border bg-card mr-6 w-[30%]"
+          className="border-border bg-card w-full lg:w-[35%] shrink-0"
         >
           <CardHeader className="pb-2 pt-3 px-4">
             <CardTitle className="text-[11px]">Preview</CardTitle>
@@ -465,7 +465,7 @@ export function PhaseFrames({
           </CardHeader>
 
           <CardContent className="space-y-2 px-4 pb-4">
-            <div className="flex aspect-square items-center justify-center border-2 border-border bg-background/50">
+            <div className="flex aspect-square max-h-[300px] lg:max-h-none items-center justify-center border-2 border-border bg-background/50 mx-auto w-full">
               {activeFrames.length > 0 ? (
                 <img
                   src={activeFrames[currentFrame]}
@@ -571,8 +571,8 @@ export function PhaseFrames({
           </CardContent>
         </Card>
 
-        {/* Right — Drag-and-drop frame grid */}
-        <Card font="retro" className="flex justify-center border-border bg-card w-[70%]">
+{/* Right — Drag-and-drop frame grid */}
+        <Card font="retro" className="flex flex-col border-border bg-card w-full lg:flex-1">
           <CardHeader className="pb-2 pt-3 px-4">
             <CardTitle className="text-[11px]">Frames</CardTitle>
             <CardDescription className="text-[8px]">

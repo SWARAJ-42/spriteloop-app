@@ -140,13 +140,13 @@ function PhaseUpload({
     <div className="mx-auto h-fit w-full max-w-3xl">
       <Card font="retro" className="border-border bg-card">
         <CardHeader className="pb-2 pt-3 px-4">
-          <CardTitle className="text-[11px]">Upload Image</CardTitle>
+          <CardTitle className="text-[5px] lg:text-[11px]">Upload Image</CardTitle>
           <CardDescription className="text-[8px]">
             Only PNG, JPG, or JPEG files are supported.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col justify-center space-y-3 px-4 pb-2">
-          <div className="flex justify-between my-3">
+          <div className="flex flex-col lg:flex-row justify-between my-3">
             <div className="flex flex-col justify-center space-y-3 px-4 pb-2">
               {/* Drop zone */}
               <div
@@ -260,7 +260,7 @@ function PhaseUpload({
                       font="retro"
                       className="flex-1 text-[8px]"
                       onClick={handleProcess}
-                      disabled={!file || loading}
+                      disabled={!file || loading || !selected}
                     >
                       {loading ? "Processing..." : "Process Image"}
                     </Button>
@@ -365,7 +365,7 @@ function PhaseAnimate({
   };
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="grid gap-4 sm:grid-cols-2">
       {/* Left — processed image */}
       <Card font="retro" className="border-border bg-card">
         <CardHeader className="pb-2 pt-3 px-4">
@@ -1012,7 +1012,7 @@ function PhaseFrames({
                 onClick={() => setShowProjectModal(true)}
                 disabled={keptCount === 0 || saving}
               >
-                {saving ? "Saving..." : "Save Animation"}
+                {saving ? "Saving..." : "Save"}
               </Button>
             </div>
 
@@ -1063,6 +1063,18 @@ export default function MainPage() {
   const [frames, setFrames] = useState<string[]>([]);
   const [postProcess, setPostProcess] = useState(true);
   const [selected, setSelected] = useState<string>("");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isMdScreen, setIsMdScreen] = useState(false);
+  
+  // Track screen size for responsive sidebar margin
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(min-width: 768px)');
+    setIsMdScreen(mediaQuery.matches);
+    
+    const handler = (e: MediaQueryListEvent) => setIsMdScreen(e.matches);
+    mediaQuery.addEventListener('change', handler);
+    return () => mediaQuery.removeEventListener('change', handler);
+  }, []);
 
   // Auth protection
   useEffect(() => {
@@ -1088,19 +1100,26 @@ export default function MainPage() {
     );
   }
 
-  return (
-    <div className="relative flex justify-center items-center min-h-screen nebula-bg">
+return (
+    <div className="relative min-h-screen nebula-bg">
       <div className="scanline-overlay absolute inset-0 z-0 pointer-events-none" />
 
-      {/* Sidebar */}
-      <div className="relative z-20 shrink-0 h-screen sticky top-0">
-        <DashboardSidebar />
-      </div>
+      {/* Fixed Sidebar */}
+      <DashboardSidebar onCollapseChange={setSidebarCollapsed} />
 
       <CreditCounter />
 
-      {/* Main content */}
-      <div className="relative z-10 flex-1 overflow-auto">
+      {/* Main content - takes remaining space */}
+      {/* On mobile (<md): always use 80px margin (sidebar is collapsed or overlay when expanded) */}
+      {/* On desktop (md+): margin adjusts based on sidebar state */}
+      <div 
+        className="flex justify-center items-center relative z-10 min-h-screen transition-[margin] duration-300 ease-in-out"
+        style={{ 
+          marginLeft: isMdScreen 
+            ? (sidebarCollapsed ? '80px' : '350px') 
+            : '80px'
+        }}
+      >
         <div className="mx-auto max-w-5xl px-3 py-4 lg:px-5">
           {/* Header */}
           <div className="mb-4 flex flex-col items-center gap-2">

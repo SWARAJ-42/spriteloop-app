@@ -1,3 +1,6 @@
+import logo from "@/assets/logo.png";
+import Image from "next/image";
+
 export function Footer() {
   const footerLinks = {
     // Product: ["Features", "Pricing", "API Docs", "Changelog", "Roadmap"],
@@ -12,22 +15,19 @@ export function Footer() {
         <div className="flex">
           {/* Brand column */}
           <div className="lg:col-span-1">
-            <div className="flex items-center gap-2 mb-4">
-              <svg viewBox="0 0 16 16" className="h-5 w-5 pixelated" xmlns="http://www.w3.org/2000/svg">
-                <rect x="7" y="1" width="2" height="2" fill="hsl(0 0% 90%)" />
-                <rect x="6" y="3" width="4" height="3" fill="hsl(190 100% 55%)" />
-                <rect x="5" y="6" width="6" height="3" fill="hsl(210 30% 55%)" />
-                <rect x="3" y="7" width="2" height="2" fill="hsl(275 70% 55%)" />
-                <rect x="11" y="7" width="2" height="2" fill="hsl(275 70% 55%)" />
-                <rect x="6" y="9" width="4" height="2" fill="hsl(45 100% 60%)" />
-                <rect x="7" y="11" width="2" height="3" fill="hsl(20 100% 55%)" />
-              </svg>
+            <div className="flex items-center gap-1 mb-4">
+              <Image
+                src={logo}
+                alt="logo"
+                className="w-[60px]"
+              />
               <span className="retro text-[9px] text-foreground ">
                 SpriteLoop
               </span>
             </div>
             <p className="retro text-[8px] leading-relaxed text-muted-foreground">
-              AI-powered 2D Character images to game animation. Made for indie devs and studios.
+              AI-powered 2D Character images to game animation. Made for indie
+              devs and studios.
             </p>
 
             {/* Social links */}
@@ -72,13 +72,22 @@ export function Footer() {
               2026 SpriteLoop.ai, All rights reserved.
             </span>
             <div className="flex gap-4">
-              <a href="#" className="retro text-[7px] text-muted-foreground hover:text-foreground">
+              <a
+                href="#"
+                className="retro text-[7px] text-muted-foreground hover:text-foreground"
+              >
                 Privacy
               </a>
-              <a href="#" className="retro text-[7px] text-muted-foreground hover:text-foreground">
+              <a
+                href="#"
+                className="retro text-[7px] text-muted-foreground hover:text-foreground"
+              >
                 Terms
               </a>
-              <a href="#" className="retro text-[7px] text-muted-foreground hover:text-foreground">
+              <a
+                href="#"
+                className="retro text-[7px] text-muted-foreground hover:text-foreground"
+              >
                 Cookies
               </a>
             </div>

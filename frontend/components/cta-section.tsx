@@ -70,7 +70,7 @@ export function CtaSection() {
             <Button 
               font="retro" 
               variant="default"
-              className="text-[11px] whitespace-nowrap bg-blue-700/10 text-foreground hover:text-foreground hover: hover:bg-blue-700/20"
+              className="text-[8px] sm:text-[11px] whitespace-nowrap bg-blue-700/10 text-foreground hover:text-foreground hover: hover:bg-blue-700/20"
               size="lg"
             >
               <PixelDiscord />

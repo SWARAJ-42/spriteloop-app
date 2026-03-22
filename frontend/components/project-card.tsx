@@ -23,7 +23,7 @@ export function ProjectCard({ project, onDelete, onOpen }: ProjectCardProps) {
   return (
     <Card
       onClick={() => onOpen(project)}
-      className="p-4 bg-blue-900/10 hover:border-cyan-400/50 transition-all h-full w-full max-w-sm flex flex-col cursor-pointer"
+      className="p-4 bg-blue-900/10 hover:border-cyan-400/50 transition-all h-[300px] w-[300px] max-w-sm flex flex-col cursor-pointer"
     >
 
       {/* Header */}
@@ -67,13 +67,13 @@ export function ProjectCard({ project, onDelete, onOpen }: ProjectCardProps) {
       </div>
 
       {/* Footer */}
-      <div className="flex justify-between items-center text-xs">
+      <div className="flex flex-col justify-between items-center text-xs">
 
         <Badge variant="secondary" className="retro text-[10px]">
           {project.images?.length || 0} generations
         </Badge>
 
-        <span className="retro text-[10px] text-foreground/50">
+        <span className="retro text-[10px] text-foreground/50 mt-2">
           {new Date(project.createdAt).toLocaleDateString()}
         </span>
 
@@ -87,19 +87,19 @@ export function CreateProjectCard({ onCreate }: { onCreate: () => void }) {
     <div
       onClick={onCreate}
       className={cn(
-        "w-full max-w-sm min-h-[300px] aspect-square",
+        "w-fit max-w-sm h-[50px] aspect-square mb-4",
         "p-4 bg-blue-900/10 border-2 border-dashed border-cyan-400/50",
         "hover:border-cyan-400 hover:bg-blue-900/20",
         "transition-all cursor-pointer",
         "flex items-center justify-center"
       )}
     >
-      <div className="flex flex-col items-center gap-2">
+      <div className="flex items-center gap-2">
         <Plus size={32} className="text-cyan-400" />
 
-        <span className="retro text-xs text-cyan-400">
+        {/* <span className="retro text-xs text-cyan-400">
           New Project
-        </span>
+        </span> */}
       </div>
     </div>
   );

@@ -7,12 +7,15 @@ import { signInWithGoogle, logout } from "@/app/lib/auth";
 import { auth } from "@/app/lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { SignInModal } from "./signin-modal";
-import { LogOut } from "lucide-react";
+import { LogOut, Menu, X } from "lucide-react";
 import { Card } from "./ui/8bit/card";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/8bit/avatar";
 import Link from "next/link";
 
 import { syncUser, trackLogout } from "@/lib/api-auth";
+import Image from "next/image";
+import logo from "@/assets/logo.png"
+import { useRouter } from "next/navigation";
 
 const navLinks = [
   { label: "Features", href: "#features" },
@@ -27,6 +30,7 @@ export function Navbar() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [signInModalOpen, setSignInModalOpen] = useState(false);
+  const router = useRouter()
 
   /**
    * AUTH LISTENER
@@ -78,6 +82,7 @@ export function Navbar() {
         onClose={() => setSignInModalOpen(false)}
         onSignIn={async () => {
           await signInWithGoogle();
+          router.push("/dashboard");
         }}
       />
 
@@ -85,13 +90,29 @@ export function Navbar() {
         <div
           className={cn(
             "transition-all duration-300 w-full max-w-6xl",
-            scrolled ? "scale-95" : "scale-100"
+            scrolled ? "scale-95" : "scale-100",
           )}
         >
-          <Card className="flex flex-row justify-center items-center px-10 py-2 bg-blue-900/10 backdrop-blur-3xl">
-            <span className="relative z-10 retro text-xs text-foreground  tracking-wider whitespace-nowrap">
-              SpriteLoop
-            </span>
+          <Card className="flex flex-row justify-between items-center px-4 md:px-10 py-2 bg-blue-900/10 backdrop-blur-md">
+            {/* Mobile menu button */}
+            <button
+              className="md:hidden p-2 text-foreground"
+              onClick={() => setMobileOpen(!mobileOpen)}
+              aria-label={mobileOpen ? "Close menu" : "Open menu"}
+            >
+              {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+
+            <div className="flex items-center">
+              <Image
+                src={logo}
+                alt="logo"
+                className="w-[60px]"
+              />
+              <span className="relative z-10 retro text-xs text-foreground tracking-wider whitespace-nowrap">
+                SpriteLoop
+              </span>
+            </div>
 
             <div className="hidden md:flex gap-8 flex-1 px-4">
               {navLinks.map((link) => (
@@ -132,7 +153,7 @@ export function Navbar() {
                         "shadow-[0_0_0_3px_rgba(0,0,0,0.8),0_15px_40px_rgba(0,0,0,0.9)]",
                         "p-2 flex flex-col gap-2",
                         "animate-in fade-in zoom-in-95",
-                        "pixelated"
+                        "pixelated",
                       )}
                     >
                       <div className="px-3 py-2 border-b border-border/50 mb-1">
@@ -153,7 +174,7 @@ export function Navbar() {
                           "text-blue-300 hover:text-blue-100",
                           "transition-all",
                           "rounded-none",
-                          "text-center justify-center"
+                          "text-center justify-center",
                         )}
                       >
                         Dashboard
@@ -173,7 +194,7 @@ export function Navbar() {
                           "bg-emerald-900/30 hover:bg-emerald-800/50",
                           "text-emerald-300 hover:text-emerald-100",
                           "transition-all",
-                          "rounded-none"
+                          "rounded-none",
                         )}
                       >
                         <LogOut size={14} />
@@ -193,6 +214,46 @@ export function Navbar() {
           className="fixed inset-0 z-40"
           onClick={() => setDropdownOpen(false)}
         />
+      )}
+
+      {/* Mobile menu overlay */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 md:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Mobile menu drawer */}
+      {mobileOpen && (
+        <div
+          className={cn(
+            "fixed top-24 left-4 right-4 z-50 md:hidden",
+            "border-2 border-border",
+            "bg-linear-to-b from-[#0a0f2a] via-[#11183c] to-[#0a0f2a]",
+            "shadow-[0_0_0_3px_rgba(0,0,0,0.8),0_15px_40px_rgba(0,0,0,0.9)]",
+            "p-4 flex flex-col gap-3",
+            "animate-in fade-in slide-in-from-top-2",
+            "backdrop-blur-3xl",
+          )}
+        >
+          {navLinks.map((link) => (
+            <a
+              key={link.label}
+              href={link.href}
+              onClick={() => setMobileOpen(false)}
+              className={cn(
+                "retro text-[11px] text-foreground hover:text-cyan-400",
+                "px-4 py-3",
+                "border border-border/40",
+                "bg-blue-900/30 hover:bg-blue-800/50",
+                "transition-all text-center",
+              )}
+            >
+              {link.label}
+            </a>
+          ))}
+        </div>
       )}
     </>
   );

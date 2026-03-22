@@ -24,3 +24,4 @@ einops
 kornia 
 timm
 opencv-python
+azure-storage-blob

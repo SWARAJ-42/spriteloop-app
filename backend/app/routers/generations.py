@@ -1,22 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from pathlib import Path
 from pydantic import BaseModel
-import shutil
 
-from app.db.models import Generation
+from app.db.models import Generation, Project, User
 from app.db.session import get_db
+from app.api.deps import get_current_user
+
+from app.services.azure_blob import generate_sas_url, blob_service_client
 
 router = APIRouter(prefix="/generations", tags=["Project Generations"])
-
-
-# ─────────────────────────────────────────────
-# Paths
-# ─────────────────────────────────────────────
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-STATIC_DIR = BASE_DIR / "static"
 
 
 class DeleteGenerationsRequest(BaseModel):
@@ -24,14 +17,34 @@ class DeleteGenerationsRequest(BaseModel):
 
 
 # ─────────────────────────────────────────────
-# Get Generations for Project
+# Get Generations for Project (SECURE)
 # ─────────────────────────────────────────────
 @router.get("/{project_id}/generations")
 async def get_project_generations(
     project_id: int,
     db: AsyncSession = Depends(get_db),
+    firebase_user=Depends(get_current_user),
 ):
 
+    uid = firebase_user["uid"]
+
+    # get user
+    result = await db.execute(select(User).where(User.firebase_uid == uid))
+    user = result.scalar_one()
+
+    # verify project ownership
+    result = await db.execute(
+        select(Project).where(
+            Project.id == project_id,
+            Project.user_id == user.id
+        )
+    )
+    project = result.scalar_one_or_none()
+
+    if not project:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+    # fetch generations
     result = await db.execute(
         select(Generation)
         .where(Generation.project_id == project_id)
@@ -47,15 +60,10 @@ async def get_project_generations(
         gif_url = None
 
         if gen.asset_path:
-
-            # asset_path stored as relative path in DB
-            rel_path = Path(gen.asset_path)
-
-            # full filesystem path
-            full_path = STATIC_DIR / rel_path
-
-            if full_path.exists():
-                gif_url = f"http://localhost:8000/static/{rel_path.as_posix()}"
+            try:
+                gif_url = generate_sas_url(gen.asset_path)
+            except Exception:
+                gif_url = None  # blob might be missing
 
         data.append(
             {
@@ -73,16 +81,29 @@ async def get_project_generations(
 
 
 # ─────────────────────────────────────────────
-# Delete Generations
+# Delete Generations (Azure + DB)
 # ─────────────────────────────────────────────
 @router.delete("/delete")
 async def delete_generations(
     req: DeleteGenerationsRequest,
     db: AsyncSession = Depends(get_db),
+    firebase_user=Depends(get_current_user),
 ):
 
+    uid = firebase_user["uid"]
+
+    # get user
+    result = await db.execute(select(User).where(User.firebase_uid == uid))
+    user = result.scalar_one()
+
+    # fetch generations with ownership check
     result = await db.execute(
-        select(Generation).where(Generation.id.in_(req.generation_ids))
+        select(Generation)
+        .join(Project)
+        .where(
+            Generation.id.in_(req.generation_ids),
+            Project.user_id == user.id
+        )
     )
 
     gens = result.scalars().all()
@@ -92,20 +113,19 @@ async def delete_generations(
 
     deleted_ids = []
 
+    container_client = blob_service_client.get_container_client("generations")
+
     for gen in gens:
 
+        # delete from Azure
         if gen.asset_path:
-
-            rel_path = Path(gen.asset_path)
-            full_path = STATIC_DIR / rel_path
-
-            folder = full_path.parent
-
-            if folder.exists():
-                shutil.rmtree(folder)
+            try:
+                blob_client = container_client.get_blob_client(gen.asset_path)
+                blob_client.delete_blob()
+            except Exception:
+                pass  # ignore if already deleted
 
         await db.delete(gen)
-
         deleted_ids.append(gen.id)
 
     await db.commit()

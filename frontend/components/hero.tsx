@@ -1,31 +1,36 @@
 "use client";
 
-import React from "react"
+import React from "react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/8bit/button";
 import { Badge } from "@/components/ui/8bit/badge";
 import { Card } from "./ui/8bit/card";
 import Image from "next/image";
-import hero from "@/assets/hero.png"
+import hero from "@/assets/hero.png";
+import { useRouter } from "next/navigation";
 
 function DummyCharacter({ className }: { className?: string }) {
   return (
     <div className={className}>
-      <svg viewBox="0 0 32 48" className="w-full h-full pixelated" xmlns="http://www.w3.org/2000/svg">
+      <svg
+        viewBox="0 0 32 48"
+        className="w-full h-full pixelated"
+        xmlns="http://www.w3.org/2000/svg"
+      >
         {/* Head */}
         <rect x="8" y="4" width="16" height="12" fill="hsl(35 100% 80%)" />
         <rect x="10" y="6" width="4" height="4" fill="hsl(190 100% 55%)" />
         <rect x="18" y="6" width="4" height="4" fill="hsl(190 100% 55%)" />
         <rect x="14" y="13" width="4" height="2" fill="hsl(0 0% 30%)" />
-        
+
         {/* Body */}
         <rect x="8" y="16" width="16" height="14" fill="hsl(275 70% 55%)" />
         <rect x="10" y="18" width="12" height="10" fill="hsl(275 50% 40%)" />
-        
+
         {/* Arms */}
         <rect x="4" y="18" width="4" height="10" fill="hsl(35 100% 80%)" />
         <rect x="24" y="18" width="4" height="10" fill="hsl(35 100% 80%)" />
-        
+
         {/* Legs */}
         <rect x="10" y="30" width="4" height="14" fill="hsl(210 30% 40%)" />
         <rect x="18" y="30" width="4" height="14" fill="hsl(210 30% 40%)" />
@@ -34,7 +39,11 @@ function DummyCharacter({ className }: { className?: string }) {
   );
 }
 
-function ArrowIcon({ direction }: { direction: "up" | "down" | "left" | "right" }) {
+function ArrowIcon({
+  direction,
+}: {
+  direction: "up" | "down" | "left" | "right";
+}) {
   const rotations = {
     up: "rotate(0deg)",
     right: "rotate(90deg)",
@@ -78,7 +87,17 @@ function KeyboardButton({
   );
 }
 
-export function PixelStar({ x, y, delay, size }: { x: number; y: number; delay: number; size: number }) {
+export function PixelStar({
+  x,
+  y,
+  delay,
+  size,
+}: {
+  x: number;
+  y: number;
+  delay: number;
+  size: number;
+}) {
   return (
     <div
       className="absolute animate-twinkle"
@@ -96,6 +115,7 @@ export function PixelStar({ x, y, delay, size }: { x: number; y: number; delay: 
 
 export function Hero() {
   const [typedText, setTypedText] = useState("");
+  const router = useRouter();
   const fullText = "Transform 2D Characters Into Game Sprite Animation";
 
   useEffect(() => {
@@ -111,7 +131,9 @@ export function Hero() {
     return () => clearInterval(interval);
   }, []);
 
-  const [stars, setStars] = useState<{ x: number; y: number; delay: number; size: number }[]>([]);
+  const [stars, setStars] = useState<
+    { x: number; y: number; delay: number; size: number }[]
+  >([]);
 
   useEffect(() => {
     setStars(
@@ -120,7 +142,7 @@ export function Hero() {
         y: Math.random() * 100,
         delay: Math.random() * 4,
         size: Math.random() > 0.85 ? 3 : Math.random() > 0.5 ? 2 : 1,
-      }))
+      })),
     );
   }, []);
 
@@ -128,7 +150,14 @@ export function Hero() {
     <section className="relative min-h-screen overflow-hidden flex flex-col items-center justify-center px-4 lg:px-8 py-48 md:py-48">
       {/* Bottom Fade Gradient */}
       <div className="pointer-events-none absolute bottom-0 left-0 w-full h-54 bg-gradient-to-b from-transparent to-[hsl(230_40%_4%)] z-10" />
-      <Image className="-z-10 absolute h-screen w-screen opacity-50" src={hero} alt="hero"/>
+      <Image
+        className="opacity-50"
+        src={hero}
+        alt=""
+        fill
+        style={{ objectFit: "cover", objectPosition: "center" }}
+        priority
+      />
       {/* Scanline overlay */}
       <div className="scanline-overlay absolute inset-0 z-10" />
 
@@ -140,7 +169,9 @@ export function Hero() {
       <div className="relative z-20 flex flex-col items-center justify-center w-full max-w-5xl px-4 md:px-0">
         {/* Badge */}
         <Badge font="retro" className="mb-8">
-          <span className="text-[8px]">AI-Powered Sprite generation Engine v1.0</span>
+          <span className="text-[6px] sm:text-[8px]">
+            AI-Powered Sprite generation Engine v1.0
+          </span>
         </Badge>
 
         {/* Main heading with typed effect */}
@@ -150,19 +181,28 @@ export function Hero() {
         </h1>
 
         {/* Subheading */}
-        <p className="retro mb-20 max-w-2xl text-center text-[10px] leading-relaxed text-foreground md:text-xs">
-          Upload any 2D character image. Our AI engine transforms it into fully animated game sprites with walk cycles, attacks, idles, and more.
+        <p className="retro mb-8 max-w-2xl text-center text-[10px] leading-relaxed text-foreground md:text-xs">
+          Upload any 2D character image. Our AI engine transforms it into fully
+          animated game sprites with walk cycles, attacks, idles, and more.
         </p>
 
         {/* CTA Buttons */}
-        {/* <div className="flex flex-col items-center gap-4 sm:flex-row mt-16">
-          <Button font="retro" className="text-[11px] px-8 py-3" size="lg">
-            Launch Mission
+        <div className="flex flex-col items-center gap-4 sm:flex-row mt-4">
+          <Button
+            onClick={() => router.push("/guide")}
+            className="w-full text-[11px] bg-blue-900/40 hover:bg-blue-800/60 text-blue-300 border-blue-900"
+            title="Guide"
+          >
+            Guide
           </Button>
-          <Button font="retro" variant="outline" className="text-[11px] whitespace-nowrap bg-blue-700/10 text-foreground hover:text-foreground hover: hover:bg-blue-700/20 w-full" size="lg">
-            View Demo
+          <Button
+            onClick={() => router.push("/auth")}
+            className="w-full text-[11px] bg-blue-900/40 hover:bg-blue-800/60 text-blue-300 border-blue-900"
+            title="Guide"
+          >
+            Get Started
           </Button>
-        </div> */}
+        </div>
       </div>
     </section>
   );

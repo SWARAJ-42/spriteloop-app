@@ -46,6 +46,18 @@ export default function DashboardPage() {
   const [generations, setGenerations] = useState<any[]>([]);
 
   const [selectedGenerations, setSelectedGenerations] = useState<number[]>([]);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isMdScreen, setIsMdScreen] = useState(false);
+  
+  // Track screen size for responsive sidebar margin
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(min-width: 768px)');
+    setIsMdScreen(mediaQuery.matches);
+    
+    const handler = (e: MediaQueryListEvent) => setIsMdScreen(e.matches);
+    mediaQuery.addEventListener('change', handler);
+    return () => mediaQuery.removeEventListener('change', handler);
+  }, []);
 
   const toggleGeneration = (id: number) => {
     setSelectedGenerations((prev) =>
@@ -121,15 +133,24 @@ export default function DashboardPage() {
     );
   }
 
-  return (
-    <div className="flex h-screen bg-background">
-      {/* Collapsible Sidebar */}
-      <DashboardSidebar />
+return (
+    <div className="relative min-h-screen bg-background">
+      {/* Fixed Sidebar */}
+      <DashboardSidebar onCollapseChange={setSidebarCollapsed} />
 
       <CreditCounter />
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-auto">
+      {/* Main Content - takes remaining space */}
+      {/* On mobile (<md): always use 80px margin (sidebar overlays when expanded) */}
+      {/* On desktop (md+): margin adjusts based on sidebar state */}
+      <div 
+        className="relative min-h-screen transition-[margin] duration-300 ease-in-out"
+        style={{ 
+          marginLeft: isMdScreen 
+            ? (sidebarCollapsed ? '80px' : '350px') 
+            : '80px'
+        }}
+      >
         <div className="p-8">
           <div className="max-w-6xl">
             {/* Header */}
@@ -139,21 +160,22 @@ export default function DashboardPage() {
                   Your Projects
                 </h1>
                 <p className="retro text-sm text-foreground/70">
-                  Manage your sprite and image generations
+                  Manage your generations
                 </p>
               </div>
             </div>
 
             {/* Projects Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <CreateProjectCard onCreate={() => setCreateDialogOpen(true)} />
+            <CreateProjectCard onCreate={() => setCreateDialogOpen(true)} />
+            <div className="flex flex-wrap">
               {projects.map((project) => (
-                <ProjectCard
-                  key={project.id}
-                  project={project}
-                  onDelete={handleDeleteProject}
-                  onOpen={openProject}
-                />
+                <div key={project.id} className="my-1 mx-2">
+                  <ProjectCard
+                    project={project}
+                    onDelete={handleDeleteProject}
+                    onOpen={openProject}
+                  />
+                </div>
               ))}
             </div>
 

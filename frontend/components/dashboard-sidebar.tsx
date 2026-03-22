@@ -25,14 +25,17 @@ import {
   LayoutGrid,
   PanelLeftClose,
   PanelLeftOpen,
+  ArrowRight,
+  ArrowLeft,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 interface DashboardSidebarProps {
   defaultCollapsed?: boolean;
+  onCollapseChange?: (collapsed: boolean) => void;
 }
 
-export function DashboardSidebar({ defaultCollapsed = false }: DashboardSidebarProps) {
+export function DashboardSidebar({ defaultCollapsed = false, onCollapseChange }: DashboardSidebarProps) {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -59,15 +62,27 @@ export function DashboardSidebar({ defaultCollapsed = false }: DashboardSidebarP
 
   return (
     <>
+      {/* Backdrop overlay for mobile when sidebar is expanded */}
+      {!collapsed && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          onClick={() => {
+            setCollapsed(true);
+            onCollapseChange?.(true);
+          }}
+        />
+      )}
+
       {/* Sidebar card */}
       <aside
         className={cn(
-          "relative flex flex-col h-full",
+          "flex flex-col h-screen fixed top-0 left-0 z-50",
           /* pixelated card look */
           "bg-[oklch(0.13_0.03_240)] text-foreground",
           "border-2 border-r-4 border-b-4 border-cyan-900/80",
-          "transition-[width] duration-300 ease-in-out",
-          collapsed ? "w-[80px]" : "w-[350px] px-5"
+          "transition-[width,transform] duration-300 ease-in-out",
+          /* Mobile: collapsed slides out completely, expanded overlays */
+          collapsed ? "w-[80px]" : "w-[280px] md:w-[350px] px-5"
         )}
       >
         {/* ── Collapse toggle ─────────────────────────────── */}
@@ -77,8 +92,12 @@ export function DashboardSidebar({ defaultCollapsed = false }: DashboardSidebarP
               Menu
             </span>
           )}
-          <Button
-            onClick={() => setCollapsed((c) => !c)}
+<Button
+            onClick={() => {
+              const newCollapsed = !collapsed;
+              setCollapsed(newCollapsed);
+              onCollapseChange?.(newCollapsed);
+            }}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             className={cn(
               "retro inline-flex items-center justify-center",
@@ -90,7 +109,7 @@ export function DashboardSidebar({ defaultCollapsed = false }: DashboardSidebarP
               collapsed && "mx-auto"
             )}
           >
-            {collapsed ? <PanelLeftOpen size={13} /> : <PanelLeftClose size={13} />}
+            {collapsed ? <ArrowRight size={13} /> : <ArrowLeft size={13} />}
           </Button>
         </div>
 

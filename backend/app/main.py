@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.routers import auth, preprocess, projects, generations
@@ -16,27 +16,13 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-        "http://localhost"
+        "http://localhost",
+        "https://spriteloop.eastus2.cloudapp.azure.com",
+        "http://spriteloop.eastus2.cloudapp.azure.com",
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-)
-
-# 2. Custom StaticFiles class to forcefully inject CORS headers into file responses
-class CORSStaticFiles(StaticFiles):
-    async def get_response(self, path: str, scope):
-        response = await super().get_response(path, scope)
-        response.headers["Access-Control-Allow-Origin"] = "*" 
-        response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = "*"
-        return response
-
-# 3. Mount the custom StaticFiles application
-app.mount(
-    "/static", 
-    CORSStaticFiles(directory=os.path.join(BASE_DIR, "static")), 
-    name="static"
 )
 
 # 4. Database startup
@@ -44,6 +30,17 @@ app.mount(
 async def startup():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+@app.get("/proxy")
+async def proxy_blob(url: str):
+    import httpx
+
+    async with httpx.AsyncClient() as client:
+        res = await client.get(url)
+        return Response(
+            content=res.content,
+            media_type=res.headers.get("content-type")
+        )
 
 # 5. Include your routers
 app.include_router(auth.router, prefix="/api")

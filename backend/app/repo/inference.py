@@ -32,6 +32,7 @@ def generate_sprite(image_base64: str, prompt: str, lora_name: str, animation_ty
     API_URL_BASE = API_URLS[animation_type]
 
     print(API_URL_BASE)
+    print(lora_name)
 
     RUNSYNC_CALL_URL = f"{API_URL_BASE}/runsync"
     STATUS_CHECK_URL = f"{API_URL_BASE}/status"

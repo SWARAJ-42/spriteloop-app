@@ -40,6 +40,7 @@ async def me(firebase_user=Depends(get_current_user)):
             "firebase_uid": user.firebase_uid,
             "last_login_at": user.last_login_at,
         }
+
 @router.post("/logout")
 async def logout(firebase_user=Depends(get_current_user)):
     uid = firebase_user["uid"]

@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str
     POSE_MODEL: str
 
+    AZURE_CONNECTION_STRING: str
+    CONTAINER_NAME: str
+
     class Config:
         env_file = ".env"
 

@@ -20,6 +20,7 @@ from app.repo.promptazure import generate_prompt_bytes
 from app.repo.poseCorrection import pose_correct_bytes
 from app.repo.postprocesspixalated import process_webp_bytes as pixelate_webp
 from app.repo.postprocessremovebg import process_webp as removebg_webp
+from app.services.azure_blob import upload_file_to_blob, generate_sas_url
 
 
 router = APIRouter(prefix="/main", tags=["Generation"])
@@ -29,9 +30,9 @@ router = APIRouter(prefix="/main", tags=["Generation"])
 # Paths
 # ─────────────────────────────────────────────
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parents[1]
 STATIC_DIR = BASE_DIR / "static"
-
+STATIC_DIR.mkdir(parents=True, exist_ok=True)
 
 # ─────────────────────────────────────────────
 # Get User Credits
@@ -236,34 +237,23 @@ async def save_animation(
     await db.commit()
     await db.refresh(generation)
 
-    generation_dir = (
-        STATIC_DIR
-        / "users"
-        / str(user.id)
-        / "projects"
-        / str(project_id)
-        / "generations"
-        / str(generation.id)
-    )
-
-    generation_dir.mkdir(parents=True, exist_ok=True)
-
-    gif_path = generation_dir / "animation.gif"
-
     content = await gif.read()
 
-    with open(gif_path, "wb") as f:
-        f.write(content)
+    # unique + secure path
+    blob_name = f"users/{user.id}/projects/{project_id}/generations/{generation.id}/animation.gif"
 
-    # store RELATIVE path instead of absolute
-    relative_path = gif_path.relative_to(STATIC_DIR)
+    # upload to azure
+    upload_file_to_blob(content, blob_name)
 
-    generation.asset_path = str(relative_path)
-
+    # store ONLY blob path
+    generation.asset_path = blob_name
     await db.commit()
+
+    # generate secure access URL
+    sas_url = generate_sas_url(blob_name)
 
     return {
         "success": True,
         "generation_id": generation.id,
-        "saved_asset_url": f"/static/{relative_path}",
+        "saved_asset_url": sas_url,
     }

@@ -13,14 +13,28 @@ export default function GenerationEditInner() {
   const gifUrl = params.get("gif");
   const projectId = params.get("project");
 
-  const [frames, setFrames] = useState<string[]>([]);
+const [frames, setFrames] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isMdScreen, setIsMdScreen] = useState(false);
+  
+  // Track screen size for responsive sidebar margin
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(min-width: 768px)');
+    setIsMdScreen(mediaQuery.matches);
+    
+    const handler = (e: MediaQueryListEvent) => setIsMdScreen(e.matches);
+    mediaQuery.addEventListener('change', handler);
+    return () => mediaQuery.removeEventListener('change', handler);
+  }, []);
 
   useEffect(() => {
     if (!gifUrl) return;
 
     async function loadFrames() {
-      const gif = await fetch(gifUrl);
+      const gif = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/proxy?url=${encodeURIComponent(gifUrl)}`,
+      );
       const blob = await gif.blob();
       const buffer = await blob.arrayBuffer();
 
@@ -40,7 +54,7 @@ export default function GenerationEditInner() {
 
         const imageData = ctx!.createImageData(
           frame.dims.width,
-          frame.dims.height
+          frame.dims.height,
         );
 
         imageData.data.set(frame.patch);
@@ -66,11 +80,23 @@ export default function GenerationEditInner() {
     );
   }
 
-  return (
-    <div className="flex h-screen nebula-bg">
-      <DashboardSidebar />
+return (
+    <div className="relative min-h-screen nebula-bg">
+      {/* Fixed Sidebar */}
+      <DashboardSidebar onCollapseChange={setSidebarCollapsed} />
       <CreditCounter />
-      <div className="flex flex-1 justify-center items-center">
+      
+      {/* Main Content - takes remaining space */}
+      {/* On mobile (<md): always use 80px margin (sidebar overlays when expanded) */}
+      {/* On desktop (md+): margin adjusts based on sidebar state */}
+      <div 
+        className="relative min-h-screen flex justify-center items-center transition-[margin] duration-300 ease-in-out"
+        style={{ 
+          marginLeft: isMdScreen 
+            ? (sidebarCollapsed ? '80px' : '350px') 
+            : '80px'
+        }}
+      >
         <div className="p-6 max-w-7xl">
           <PhaseFrames
             frames={frames}
