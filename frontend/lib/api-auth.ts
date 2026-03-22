@@ -1,6 +1,6 @@
 import { auth } from "@/app/lib/firebase";
 
-const API_URL = "http://localhost:8000";
+const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 /**
  * Get Firebase token

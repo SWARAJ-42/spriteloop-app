@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.routers import auth, preprocess, projects, generations
 from app.db.base import Base
@@ -8,7 +9,9 @@ import os
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-app = FastAPI(title="FastAPI Firebase Auth")
+app = FastAPI(title="FastAPI Firebase Auth", redirect_slashes=False)
+
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 
 # 1. Standard CORS middleware for your API routes
 app.add_middleware(
@@ -17,8 +20,7 @@ app.add_middleware(
         "http://localhost:3000",
         "http://127.0.0.1:3000",
         "http://localhost",
-        "https://spriteloop.eastus2.cloudapp.azure.com",
-        "http://spriteloop.eastus2.cloudapp.azure.com",
+        "https://spriteloop.eastus2.cloudapp.azure.com"
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -31,7 +33,7 @@ async def startup():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-@app.get("/proxy")
+@app.get("/api/proxy")
 async def proxy_blob(url: str):
     import httpx
 

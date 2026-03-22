@@ -30,7 +30,7 @@ export async function fetchProjects() {
 
   console.log("Fetching projects from:", `${baseUrl}/projects`);
 
-  const res = await fetch(`${baseUrl}/projects`, {
+  const res = await fetch(`${baseUrl}/projects/`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -49,7 +49,7 @@ export async function createProject(name: string) {
   const token = await getToken();
   const baseUrl = getBaseUrl();
 
-  const res = await fetch(`${baseUrl}/projects`, {
+  const res = await fetch(`${baseUrl}/projects/`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
