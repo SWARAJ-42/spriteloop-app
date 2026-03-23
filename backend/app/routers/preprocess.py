@@ -10,6 +10,7 @@ import base64
 import io
 from PIL import Image
 from pathlib import Path
+import asyncio
 
 from app.api.deps import get_current_user
 from app.db.models import Project, Generation, User
@@ -81,15 +82,25 @@ async def pre_generate(
         result = await db.execute(select(User).where(User.firebase_uid == uid))
         user = result.scalar_one()
 
-        if user.credits_remaining <= 0:
+        if user.credits_remaining < 5:
             return {"success": False, "error": "No credits remaining"}
 
         user.credits_remaining -= 5
         await db.commit()
 
-        image_bytes = pose_correct_bytes(image_bytes, animation_type)
+        # move to thread
+        image_bytes = await asyncio.to_thread(
+            pose_correct_bytes,
+            image_bytes,
+            animation_type
+        )
 
-    processed_bytes = preprocess_sprite(image_bytes, pixel_art=True)
+    # move to thread
+    processed_bytes = await asyncio.to_thread(
+        preprocess_sprite,
+        image_bytes,
+        pixel_art=True
+    )
 
     return Response(content=processed_bytes, media_type="image/png")
 
@@ -117,7 +128,7 @@ async def generate_animation(
     result = await db.execute(select(User).where(User.firebase_uid == uid))
     user = result.scalar_one()
 
-    if user.credits_remaining <= 0:
+    if user.credits_remaining < 40:
         return {"success": False, "error": "No credits remaining"}
 
     user.credits_remaining -= 40
@@ -125,42 +136,46 @@ async def generate_animation(
 
     image_bytes = base64.b64decode(req.image_base64)
 
-    animation_prompt = generate_prompt_bytes(
+    # parallelizable parts
+    animation_prompt = await asyncio.to_thread(
+        generate_prompt_bytes,
         image_bytes,
         req.animation_type,
         "PBmcK7uc",
         req.additional_prompt
     )
 
-    webp_base64 = generate_sprite(
-        image_base64=req.image_base64,
-        prompt=animation_prompt,
-        lora_name=f"gamesprite_2d_{req.animation_type}163.safetensors",
-        animation_type=req.animation_type,
+    webp_base64 = await asyncio.to_thread(
+        generate_sprite,
+        req.image_base64,
+        animation_prompt,
+        f"gamesprite_2d_{req.animation_type}163.safetensors",
+        req.animation_type,
     )
 
     webp_bytes = base64.b64decode(webp_base64)
 
     if req.post_process:
-        webp_bytes = pixelate_webp(webp_bytes)
-        # webp_bytes = removebg_webp(webp_bytes)
+        webp_bytes = await asyncio.to_thread(pixelate_webp, webp_bytes)
 
-    img = Image.open(io.BytesIO(webp_bytes))
+    # move frame extraction to thread
+    def extract_frames(bytes_data):
+        img = Image.open(io.BytesIO(bytes_data))
+        frames = []
 
-    frames = []
+        try:
+            while True:
+                frame = img.copy().convert("RGBA")
+                buf = io.BytesIO()
+                frame.save(buf, format="PNG")
+                frames.append(base64.b64encode(buf.getvalue()).decode())
+                img.seek(len(frames))
+        except EOFError:
+            pass
 
-    try:
-        while True:
-            frame = img.copy().convert("RGBA")
+        return frames
 
-            buf = io.BytesIO()
-            frame.save(buf, format="PNG")
-
-            frames.append(base64.b64encode(buf.getvalue()).decode())
-
-            img.seek(len(frames))
-    except EOFError:
-        pass
+    frames = await asyncio.to_thread(extract_frames, webp_bytes)
 
     return {"success": True, "frames": frames}
 
@@ -239,17 +254,18 @@ async def save_animation(
 
     content = await gif.read()
 
-    # unique + secure path
     blob_name = f"users/{user.id}/projects/{project_id}/generations/{generation.id}/animation.gif"
 
-    # upload to azure
-    upload_file_to_blob(content, blob_name)
+    # offload Azure upload
+    await asyncio.to_thread(
+        upload_file_to_blob,
+        content,
+        blob_name
+    )
 
-    # store ONLY blob path
     generation.asset_path = blob_name
     await db.commit()
 
-    # generate secure access URL
     sas_url = generate_sas_url(blob_name)
 
     return {

@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
+import asyncio
+from functools import partial
 
 from app.db.models import Generation, Project, User
 from app.db.session import get_db
@@ -89,7 +91,6 @@ async def delete_generations(
     db: AsyncSession = Depends(get_db),
     firebase_user=Depends(get_current_user),
 ):
-
     uid = firebase_user["uid"]
 
     # get user
@@ -105,32 +106,43 @@ async def delete_generations(
             Project.user_id == user.id
         )
     )
-
     gens = result.scalars().all()
 
     if not gens:
         raise HTTPException(status_code=404, detail="Generations not found")
 
-    deleted_ids = []
-
     container_client = blob_service_client.get_container_client("generations")
 
+    # ─────────────────────────────
+    # 1. Parallel Azure deletes
+    # ─────────────────────────────
+    async def delete_blob_async(path: str):
+        try:
+            blob_client = container_client.get_blob_client(path)
+
+            # run blocking call in thread
+            await asyncio.to_thread(blob_client.delete_blob)
+
+        except Exception:
+            pass
+
+    blob_tasks = [
+        delete_blob_async(gen.asset_path)
+        for gen in gens
+        if gen.asset_path
+    ]
+
+    await asyncio.gather(*blob_tasks)
+
+    # ─────────────────────────────
+    # 2. Batch DB delete (faster)
+    # ─────────────────────────────
     for gen in gens:
-
-        # delete from Azure
-        if gen.asset_path:
-            try:
-                blob_client = container_client.get_blob_client(gen.asset_path)
-                blob_client.delete_blob()
-            except Exception:
-                pass  # ignore if already deleted
-
         await db.delete(gen)
-        deleted_ids.append(gen.id)
 
     await db.commit()
 
     return {
         "success": True,
-        "deleted_ids": deleted_ids
+        "deleted_ids": [gen.id for gen in gens]
     }

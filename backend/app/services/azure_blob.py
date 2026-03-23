@@ -5,6 +5,9 @@ from azure.storage.blob import (
     generate_blob_sas,
     BlobSasPermissions
 )
+from dotenv import load_dotenv
+
+load_dotenv()
 
 AZURE_CONNECTION_STRING = os.getenv("AZURE_CONNECTION_STRING")
 CONTAINER_NAME = "generations"
@@ -36,3 +39,14 @@ def generate_sas_url(blob_name: str, expiry_minutes: int = 60):
     )
 
     return f"https://{blob_service_client.account_name}.blob.core.windows.net/{CONTAINER_NAME}/{blob_name}?{sas_token}"
+
+
+def delete_blob(blob_name: str):
+    try:
+        blob_client = blob_service_client.get_blob_client(
+            container=CONTAINER_NAME,
+            blob=blob_name
+        )
+        blob_client.delete_blob()
+    except Exception as e:
+        print(f"Blob delete failed for {blob_name}: {e}")

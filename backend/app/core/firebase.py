@@ -11,7 +11,7 @@ def verify_firebase_token(token: str):
     """
     Verifies Firebase ID token sent from frontend.
     """
-    decoded = auth.verify_id_token(token)
+    decoded = auth.verify_id_token(token, clock_skew_seconds=5)
     return decoded
 
 

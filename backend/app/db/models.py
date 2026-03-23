@@ -20,11 +20,15 @@ class User(Base):
     last_logout_at = Column(DateTime)
     deleted_at = Column(DateTime)
 
-    # NEW
     credits_remaining = Column(Integer, default=100)
     credits_last_reset = Column(DateTime, server_default=func.now())
 
-    projects = relationship("Project", back_populates="user")
+    # ✅ FIXED: cascade delete
+    projects = relationship(
+        "Project",
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
 
 
 class Project(Base):
@@ -32,7 +36,12 @@ class Project(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    # ✅ FIXED: DB-level cascade
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False
+    )
 
     name = Column(String, nullable=False)
 
@@ -41,7 +50,9 @@ class Project(Base):
     user = relationship("User", back_populates="projects")
 
     generations = relationship(
-        "Generation", back_populates="project", cascade="all, delete-orphan"
+        "Generation",
+        back_populates="project",
+        cascade="all, delete-orphan"
     )
 
 
@@ -51,14 +62,14 @@ class Generation(Base):
     id = Column(Integer, primary_key=True, index=True)
 
     project_id = Column(
-        Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
+        Integer,
+        ForeignKey("projects.id", ondelete="CASCADE"),
+        nullable=False
     )
 
     name = Column(String)
-
-    asset_path = Column(String)  # local path / s3 url later
-
-    generation_type = Column(String)  # idle / running / jumping
+    asset_path = Column(String)
+    generation_type = Column(String)
 
     created_at = Column(DateTime, server_default=func.now())
 

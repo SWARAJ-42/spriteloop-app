@@ -11,7 +11,8 @@ def get_current_user(
         token = credentials.credentials
         decoded = verify_firebase_token(token)
         return decoded
-    except Exception:
+    except Exception as e:
+        print("Firebase verify error:", str(e))
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid Firebase token",
