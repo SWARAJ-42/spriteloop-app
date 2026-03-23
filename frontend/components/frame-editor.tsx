@@ -404,7 +404,7 @@ export function PhaseFrames({
       const gifBlob = await buildGif(activeFrames);
 
       const res = await saveGif({
-        job_id: "",
+        job_id: "manual",
         project_id: projectId,
         gif: gifBlob,
       });
@@ -429,7 +429,11 @@ export function PhaseFrames({
         <ProjectSelectModal
           projects={projects}
           onSave={handleProjectSelect}
-          onCreateProject={createProject}
+          onCreateProject={async (name: string) => {
+            const newProject = await createProject(name);
+            setProjects((prev) => [...prev, newProject]);
+            return newProject;
+          }}
           onClose={() => setShowProjectModal(false)}
         />
       )}

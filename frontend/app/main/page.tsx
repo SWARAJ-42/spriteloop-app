@@ -70,6 +70,7 @@ function PhaseUpload({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [drag, setDrag] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = (f: File) => {
     const allowed = ["image/png", "image/jpeg"];
@@ -134,6 +135,10 @@ function PhaseUpload({
     setError(null);
     setPoseCorrection(true);
     setPrompt("");
+    // Clear the file input value so the same file can be re-selected
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   return (
@@ -160,7 +165,8 @@ function PhaseUpload({
                     : "border-border bg-background/30"
                 }`}
               >
-                <input
+<input
+                  ref={fileInputRef}
                   type="file"
                   accept=".png,.jpg,.jpeg"
                   className="absolute inset-0 cursor-pointer opacity-0"
@@ -176,7 +182,7 @@ function PhaseUpload({
                 </span>
                 {file && (
                   <Badge font="retro" variant="secondary" className="mt-2">
-                    <span className="text-[7px]">{file.name}</span>
+                    <span className="text-[7px]">{file.name.slice(0, 20)}...</span>
                   </Badge>
                 )}
               </div>
@@ -883,7 +889,11 @@ function PhaseFrames({
         <ProjectSelectModal
           projects={projects}
           onSave={handleProjectSelect}
-          onCreateProject={createProject}
+          onCreateProject={async (name: string) => {
+            const newProject = await createProject(name);
+            setProjects((prev) => [...prev, newProject]);
+            return newProject;
+          }}
           onClose={() => setShowProjectModal(false)}
         />
       )}

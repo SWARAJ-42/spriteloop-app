@@ -14,7 +14,7 @@ import Link from "next/link";
 
 import { syncUser, trackLogout } from "@/lib/api-auth";
 import Image from "next/image";
-import logo from "@/assets/logo.png"
+import logo from "@/assets/logo.png";
 import { useRouter } from "next/navigation";
 
 const navLinks = [
@@ -30,7 +30,7 @@ export function Navbar() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [signInModalOpen, setSignInModalOpen] = useState(false);
-  const router = useRouter()
+  const router = useRouter();
 
   /**
    * AUTH LISTENER
@@ -82,7 +82,7 @@ export function Navbar() {
         onClose={() => setSignInModalOpen(false)}
         onSignIn={async () => {
           await signInWithGoogle();
-          router.push("/dashboard");
+          router.push("/dashboard")
         }}
       />
 
@@ -103,16 +103,14 @@ export function Navbar() {
               {mobileOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
 
-            <div className="flex items-center">
-              <Image
-                src={logo}
-                alt="logo"
-                className="w-[60px]"
-              />
-              <span className="relative z-10 retro text-xs text-foreground tracking-wider whitespace-nowrap">
-                SpriteLoop
-              </span>
-            </div>
+            {
+              <div className="hidden md:flex items-center">
+                <Image src={logo} alt="logo" className="w-[60px]" />
+                <span className="relative z-10 retro text-xs text-foreground tracking-wider whitespace-nowrap">
+                  SpriteLoop
+                </span>
+              </div>
+            }
 
             <div className="hidden md:flex gap-8 flex-1 px-4">
               {navLinks.map((link) => (

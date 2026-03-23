@@ -6,10 +6,16 @@ import { auth } from "@/app/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/8bit/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/8bit/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/8bit/card";
 import { Gamepad2, LogIn, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-import logo from "@/assets/logo.png"
+import logo from "@/assets/logo.png";
 import Image from "next/image";
 
 export default function AuthPage() {
@@ -19,8 +25,9 @@ export default function AuthPage() {
 
   // Check if already authenticated
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
+        await user.getIdToken(true); // 🔥 ensure token is ready
         router.push("/dashboard");
       }
     });
@@ -32,7 +39,6 @@ export default function AuthPage() {
     setError(null);
     try {
       await signInWithGoogle();
-      router.push("/dashboard");
     } catch (err) {
       setError("Failed to sign in. Please try again.");
       console.error(err);
@@ -70,7 +76,7 @@ export default function AuthPage() {
         </div>
 
         {/* Auth Card */}
-        <Card 
+        <Card
           font="retro"
           className={cn(
             "bg-[oklch(0.13_0.03_240)] text-foreground",
@@ -98,7 +104,7 @@ export default function AuthPage() {
                 "border-2 border-b-4 border-r-4",
                 "active:translate-x-px active:translate-y-px active:border-b-2 active:border-r-2",
                 "transition-all duration-150",
-                "h-12 gap-3"
+                "h-12 gap-3",
               )}
             >
               {isLoading ? (

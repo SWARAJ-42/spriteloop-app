@@ -12,7 +12,7 @@ type Project = {
 };
 
 export function ProjectSelectModal({
-  projects,
+  projects: initialProjects,
   onSave,
   onCreateProject,
   onClose,
@@ -22,6 +22,7 @@ export function ProjectSelectModal({
   onCreateProject: (name: string) => Promise<Project>;
   onClose: () => void;
 }) {
+  const [localProjects, setLocalProjects] = useState<Project[]>(initialProjects);
   const [selectedProject, setSelectedProject] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
@@ -32,6 +33,8 @@ export function ProjectSelectModal({
     setLoading(true);
     try {
       const project = await onCreateProject(newProjectName.trim());
+      // Update local projects list immediately so UI reflects the new project
+      setLocalProjects((prev) => [...prev, project]);
       setSelectedProject(project.id);
       setCreating(false);
       setNewProjectName("");
@@ -64,7 +67,7 @@ export function ProjectSelectModal({
 
           {/* Project list */}
           <div className="space-y-1.5 max-h-48 overflow-y-auto pr-0.5">
-            {projects.map((p) => (
+            {localProjects.map((p) => (
               <button
                 key={p.id}
                 onClick={() => setSelectedProject(p.id)}
@@ -83,7 +86,7 @@ export function ProjectSelectModal({
               </button>
             ))}
 
-            {projects.length === 0 && !creating && (
+            {localProjects.length === 0 && !creating && (
               <p className="retro text-[7px] text-muted-foreground text-center py-4">
                 No projects yet — create one below.
               </p>

@@ -241,19 +241,17 @@ export function DashboardSidebar({ defaultCollapsed = false, onCollapseChange }:
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel asChild>
+            <AlertDialogCancel className="bg-none hover:bg-background">
               <Button className="bg-foreground/10 hover:bg-foreground/20 text-foreground border-foreground/20 h-7 px-3 text-[10px]">
                 Cancel
               </Button>
             </AlertDialogCancel>
-            <AlertDialogAction asChild>
               <Button
                 onClick={handleDelete}
                 className="bg-red-900/40 hover:bg-red-800/60 text-red-300 border-red-900 h-7 px-3 text-[10px]"
               >
                 Delete
               </Button>
-            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
