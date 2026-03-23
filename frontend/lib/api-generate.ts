@@ -80,9 +80,16 @@ export async function generateAnimation(
     body: JSON.stringify(req),
   });
 
-  if (!res.ok) throw new Error(`generate: HTTP ${res.status}`);
+  const data = await res.json();
 
-  return res.json();
+  // ✅ Handle backend-declared failures
+  if (!res.ok || !data.success) {
+    throw new Error(
+      data?.error || "Something went wrong while generating animation"
+    );
+  }
+
+  return data;
 }
 
 // ── Phase 3 – Save selected frames ───────────────────────────

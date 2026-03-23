@@ -122,63 +122,118 @@ async def generate_animation(
     db: AsyncSession = Depends(get_db),
     firebase_user=Depends(get_current_user),
 ):
-
     uid = firebase_user["uid"]
 
+    # ─────────────────────────────
+    # Get user
+    # ─────────────────────────────
     result = await db.execute(select(User).where(User.firebase_uid == uid))
     user = result.scalar_one()
 
     if user.credits_remaining < 40:
-        return {"success": False, "error": "No credits remaining"}
+        return {"success": False, "error": "Not enough credits"}
 
+    # Deduct credits (we'll rollback if something fails)
     user.credits_remaining -= 40
     await db.commit()
 
-    image_bytes = base64.b64decode(req.image_base64)
+    try:
+        # ─────────────────────────────
+        # Decode input
+        # ─────────────────────────────
+        try:
+            image_bytes = base64.b64decode(req.image_base64)
+        except Exception:
+            raise Exception("Invalid image data")
 
-    # parallelizable parts
-    animation_prompt = await asyncio.to_thread(
-        generate_prompt_bytes,
-        image_bytes,
-        req.animation_type,
-        "PBmcK7uc",
-        req.additional_prompt
-    )
+        # ─────────────────────────────
+        # Generate prompt
+        # ─────────────────────────────
+        try:
+            animation_prompt = await asyncio.to_thread(
+                generate_prompt_bytes,
+                image_bytes,
+                req.animation_type,
+                "PBmcK7uc",
+                req.additional_prompt
+            )
+        except Exception:
+            raise Exception("Failed to generate animation prompt")
 
-    webp_base64 = await asyncio.to_thread(
-        generate_sprite,
-        req.image_base64,
-        animation_prompt,
-        f"gamesprite_2d_{req.animation_type}163.safetensors",
-        req.animation_type,
-    )
+        # ─────────────────────────────
+        # RunPod (MAIN FAILURE POINT)
+        # ─────────────────────────────
+        try:
+            webp_base64 = await asyncio.to_thread(
+                generate_sprite,
+                req.image_base64,
+                animation_prompt,
+                f"gamesprite_2d_{req.animation_type}163.safetensors",
+                req.animation_type,
+            )
+        except Exception as e:
+            msg = str(e)
 
-    webp_bytes = base64.b64decode(webp_base64)
+            # Clean mapping from your RunPod code :contentReference[oaicite:0]{index=0}
+            if "GPU" in msg or "capacity" in msg:
+                raise Exception("GPU capacity is temporarily unavailable. Please retry in a few seconds.")
+            else:
+                raise Exception("Animation generation failed. Please try again.")
 
-    if req.post_process:
-        webp_bytes = await asyncio.to_thread(pixelate_webp, webp_bytes)
+        # ─────────────────────────────
+        # Decode WebP
+        # ─────────────────────────────
+        try:
+            webp_bytes = base64.b64decode(webp_base64)
+        except Exception:
+            raise Exception("Failed to process generated animation")
 
-    # move frame extraction to thread
-    def extract_frames(bytes_data):
-        img = Image.open(io.BytesIO(bytes_data))
-        frames = []
+        # ─────────────────────────────
+        # Optional post-process
+        # ─────────────────────────────
+        if req.post_process:
+            try:
+                webp_bytes = await asyncio.to_thread(pixelate_webp, webp_bytes)
+            except Exception:
+                raise Exception("Post-processing failed")
+
+        # ─────────────────────────────
+        # Frame extraction
+        # ─────────────────────────────
+        def extract_frames(bytes_data):
+            img = Image.open(io.BytesIO(bytes_data))
+            frames = []
+
+            try:
+                while True:
+                    frame = img.copy().convert("RGBA")
+                    buf = io.BytesIO()
+                    frame.save(buf, format="PNG")
+                    frames.append(base64.b64encode(buf.getvalue()).decode())
+                    img.seek(len(frames))
+            except EOFError:
+                pass
+
+            return frames
 
         try:
-            while True:
-                frame = img.copy().convert("RGBA")
-                buf = io.BytesIO()
-                frame.save(buf, format="PNG")
-                frames.append(base64.b64encode(buf.getvalue()).decode())
-                img.seek(len(frames))
-        except EOFError:
-            pass
+            frames = await asyncio.to_thread(extract_frames, webp_bytes)
+        except Exception:
+            raise Exception("Failed to extract animation frames")
 
-        return frames
+        return {"success": True, "frames": frames}
 
-    frames = await asyncio.to_thread(extract_frames, webp_bytes)
+    except Exception as e:
+        # ─────────────────────────────
+        # CRITICAL: rollback credits
+        # ─────────────────────────────
+        user.credits_remaining += 40
+        await db.commit()
 
-    return {"success": True, "frames": frames}
-
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
 # ─────────────────────────────────────────────
 # Helper — Save frames locally

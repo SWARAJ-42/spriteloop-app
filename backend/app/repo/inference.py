@@ -217,7 +217,7 @@ def generate_sprite(image_base64: str, prompt: str, lora_name: str, animation_ty
         print("Status:", status)
 
     if status != "COMPLETED":
-        raise Exception("RunPod job failed")
+        raise Exception("GPU capacity is temporarily unavailable. Please retry in a few minutes.")
 
     # Extract WebP
     images = result["output"]["images"]
