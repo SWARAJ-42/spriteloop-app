@@ -18,10 +18,10 @@ import logo from "@/assets/logo.png";
 import { useRouter } from "next/navigation";
 
 const navLinks = [
-  { label: "Features", href: "#features" },
-  { label: "Gallery", href: "#gallery" },
-  { label: "Pricing", href: "#pricing" },
-  { label: "Contact us", href: "contact" },
+  { label: "Features", href: "/#features" },
+  { label: "Gallery", href: "/#gallery" },
+  { label: "Pricing", href: "/#pricing" },
+  { label: "Contact us", href: "/contact" },
 ];
 
 export function Navbar() {
