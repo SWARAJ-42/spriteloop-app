@@ -1,5 +1,7 @@
 import React from "react"
 import type { Metadata, Viewport } from 'next'
+import { PaymentListener } from "@/components/payment-listener";
+import { Toaster } from "sonner";
 
 import './globals.css'
 
@@ -20,7 +22,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <Toaster />
+        <PaymentListener />
+        {children}
+      </body>
     </html>
   )
 }

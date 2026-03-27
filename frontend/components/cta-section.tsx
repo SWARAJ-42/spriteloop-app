@@ -28,7 +28,7 @@ function PixelDiscord() {
 }
 
 export function CtaSection() {
-  const discordInviteUrl = "https://discord.gg/your-discord-invite"; // Replace with your actual Discord invite link
+  const discordInviteUrl = "https://discord.gg/dQNdpbXNzJ"; // Replace with your actual Discord invite link
 
   return (
     <section className="relative py-24 space-grid nebula-bg-alt">

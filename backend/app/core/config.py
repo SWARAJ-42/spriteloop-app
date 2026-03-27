@@ -1,6 +1,5 @@
 from pydantic_settings import BaseSettings
 
-
 class Settings(BaseSettings):
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str
@@ -16,6 +15,8 @@ class Settings(BaseSettings):
     RUNPOD_API_KEY: str
     POLL_INTERVAL: int
 
+    FRONTEND_URL: str
+
     ENDPOINT: str
     DEPLOYMENT: str
     SUBSCRIPTION_KEY: str
@@ -26,6 +27,8 @@ class Settings(BaseSettings):
 
     AZURE_CONNECTION_STRING: str
     CONTAINER_NAME: str
+
+    DODO_API_KEY: str
 
     class Config:
         env_file = ".env"

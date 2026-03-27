@@ -19,9 +19,9 @@ import { useRouter } from "next/navigation";
 
 const navLinks = [
   { label: "Features", href: "#features" },
-  { label: "How It Works", href: "#how-it-works" },
   { label: "Gallery", href: "#gallery" },
   { label: "Pricing", href: "#pricing" },
+  { label: "Contact us", href: "contact" },
 ];
 
 export function Navbar() {
@@ -105,7 +105,7 @@ export function Navbar() {
 
             {
               <div className="hidden md:flex items-center">
-                <Image src={logo} alt="logo" className="w-[60px]" />
+                <Image src={logo} alt="logo" className="w-[50px] mx-2" />
                 <span className="relative z-10 retro text-xs text-foreground tracking-wider whitespace-nowrap">
                   SpriteLoop
                 </span>

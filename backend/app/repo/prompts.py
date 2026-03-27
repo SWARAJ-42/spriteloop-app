@@ -1,193 +1,230 @@
-
-# ──────────────────────────────────────────────────────────
-# POSE PROMPTS
-# ──────────────────────────────────────────────────────────
-
 POSE_PROMPT_RUNNING = """
-You are an image editor. Repose the subject into a clean 2D game sprite-friendly RUNNING pose in a STRICT SIDE VIEW while preserving the character’s original identity, equipment, and style.
+You are an expert 2D sprite artist and animator. Your task is to repose the given character into a RUNNING animation frame.
 
-VIEW AND ORIENTATION (VERY IMPORTANT):
-- The character must be shown in a TRUE SIDE PROFILE.
-- The body must be viewed from the side only (NOT 3/4 view, NOT facing the viewer).
-- The head, torso, hips, and feet must all align in a single side-view plane.
-- The character must face RIGHT (moving LEFT → RIGHT).
-- The full body must be visible from head to toe.
-- The character should look like a frame from a 2D side-scrolling game.
+STEP 1 — READ THE CHARACTER:
+Before posing, study the image carefully and identify:
+- What type of character is this? (human, zombie, robot, animal, monster, ghost, etc.)
+- What is their natural movement style? (shambling, mechanical, feral, graceful, etc.)
+- What equipment or items are they holding or wearing?
+- What are their unique physical traits? (extra limbs, unusual proportions, floating parts, etc.)
 
-RUNNING POSE REQUIREMENTS:
-- The pose must clearly show a RUNNING stride.
-- One leg extended forward.
-- One leg extended backward.
-- The torso slightly leaning forward for motion.
+STEP 2 — DEFINE THEIR RUNNING STYLE:
+Apply a running pose that feels TRUE to this character's nature:
+- Human warrior → athletic stride, forward lean, controlled arm swing
+- Zombie → hunched lurching run, dragging or stiff limbs or horizontal limbs if input image seems, uneven gait
+- Robot → mechanical stride, rigid joints, limited arm swing
+- Animal / creature → species-appropriate gallop or lope
+- Ghost / floater → fast glide or drift, minimal limb movement
+- Any other character → use visual logic and lore knowledge to determine how THEY would run
 
-ARM MOVEMENT (IMPORTANT):
-- Arms must swing opposite to the legs (natural running motion).
-- The forward leg pairs with the backward arm.
-- The backward leg pairs with the forward arm.
-- Arms must remain fully visible in side view.
+The pose must feel like THIS character running — not a generic human running.
 
-ANIMAL / CREATURE RULES:
-If the subject is an animal or creature:
-- Use a natural running locomotion pose.
-- Front and back legs extended like a mid-stride frame.
-- The spine should follow the natural running posture of the creature.
-- Maintain species-accurate limb positioning.
+STEP 3 — APPLY THE POSE:
 
-EQUIPMENT AND PROPS:
-- ALL original equipment must remain visible.
-- Weapons, armor, tools, and accessories must NOT disappear.
-- The character must continue holding equipment correctly while running.
+VIEW:
+- TRUE SIDE PROFILE (pure 90°). No 3/4 view, no rotation.
+- Character faces RIGHT (moving left → right).
+- Full body visible. No cropping.
 
-STRICT PRESERVATION RULES:
-- DO NOT change the character’s face, identity, species, clothing, fur, armor, or colors.
-- DO NOT redesign the character.
-- DO NOT change body proportions.
-- DO NOT crop the subject.
+RUNNING MOTION:
+- Clear mid-stride: one leg forward, one back.
+- Forward lean appropriate to character type.
+- Motion must be immediately readable as running.
+- Reflect the character's personality in the motion (aggressive, shambling, graceful, etc.).
 
-BACKGROUND:
-- Keep the background simple and neutral.
+ARMS / HANDS:
+- Arms move opposite to legs (or use character-appropriate arm behavior).
+- If holding equipment: KEEP grip exact. Adjust pose around the equipment — never hide or drop it.
+
+EQUIPMENT (NON-NEGOTIABLE):
+- ALL held or worn equipment must remain FULLY VISIBLE.
+- Do NOT hide behind the body, crop, merge with limbs, or obscure in any way.
+- If a limb would overlap equipment → adjust the limb, not the equipment.
+- Preserve original size, shape, and orientation of all equipment.
+- Equipment visibility always takes priority over pose perfection.
+
+PRESERVE EXACTLY:
+- Face, colors, outfit, proportions, and all design details.
+- Do not add or remove any elements.
+
+COMPOSITION:
+- Clean, readable silhouette with no merged limbs or equipment.
+- White background.
 
 GOAL:
-Produce a clean SIDE-PROFILE running sprite frame suitable for a 2D side-scrolling animation, with natural limb movement and strict side view orientation.
+A polished side-view running frame that looks and feels natural for THIS specific character, with all equipment fully visible and unobstructed.
 """
 
 
 POSE_PROMPT_WALKING = """
-You are an image editor. Repose the subject into a clean 2D game sprite-friendly WALKING pose in a STRICT SIDE VIEW while preserving the character’s original identity, equipment, and style.
+You are an expert 2D sprite artist and animator. Your task is to repose the given character into a WALKING animation frame.
 
-VIEW AND ORIENTATION (VERY IMPORTANT):
-- The character must be shown in a TRUE SIDE PROFILE.
-- The body must be viewed strictly from the side (NOT 3/4 view, NOT facing the viewer).
-- The head, torso, hips, and feet must align in the same side-view plane.
-- The character must face RIGHT (moving LEFT → RIGHT).
-- The full body must be visible from head to toe.
-- The character should resemble a frame from a 2D side-scrolling game.
+STEP 1 — READ THE CHARACTER:
+Before posing, study the image carefully and identify:
+- What type of character is this? (human, zombie, robot, animal, monster, ghost, etc.)
+- What is their natural movement style? (casual, stiff, predatory, plodding, floating, etc.)
+- What equipment or items are they holding or wearing?
+- What are their unique physical traits? (extra limbs, unusual proportions, floating parts, etc.)
 
-WALKING POSE REQUIREMENTS:
-- The pose must clearly show a relaxed WALKING stride.
-- One leg stepping forward.
-- One leg stepping slightly behind.
-- The stride should be shorter and more relaxed than a running pose.
-- The torso should remain mostly upright (not leaning forward).
+STEP 2 — DEFINE THEIR WALKING STYLE:
+Apply a walking pose that feels TRUE to this character's nature:
+- Human → relaxed, upright stride with gentle arm swing
+- Zombie → slow shamble, hunched, dragging one foot, arms loosely forward horizontal also should be based on input image like hozizontal stiff arm if shown
+- Robot → measured mechanical steps, limited joint flex
+- Animal / creature → species-appropriate natural gait
+- Ghost / floater → slow glide or drift, body mostly still
+- Any other character → use visual logic and lore knowledge to determine how THEY would walk
 
-ARM MOVEMENT:
-- Arms should swing naturally in a relaxed walking motion.
-- The arm opposite the forward leg should swing forward.
-- The arm opposite the back leg should swing backward.
-- The motion should feel calm and natural.
+The pose must feel like THIS character walking — not a generic human walking.
 
-ANIMAL / CREATURE RULES:
-If the subject is an animal or creature:
-- Use a natural walking locomotion pose.
-- Front and back legs should show a mid-step walking frame.
-- Maintain realistic limb positions for the species.
+STEP 3 — APPLY THE POSE:
 
-EQUIPMENT AND PROPS:
-- ALL original equipment must remain visible.
-- Weapons, armor, tools, and accessories must NOT disappear.
-- The character must continue holding equipment correctly.
+VIEW:
+- TRUE SIDE PROFILE (pure 90°). No 3/4 view, no rotation.
+- Character faces RIGHT (moving left → right).
+- Full body visible. No cropping.
 
-STRICT PRESERVATION RULES:
-- DO NOT change the character’s face, identity, species, clothing, fur, armor, or colors.
-- DO NOT redesign the character.
-- DO NOT change body proportions.
-- DO NOT crop the subject.
+WALKING MOTION:
+- Clear relaxed stride: one leg forward, one slightly back.
+- Torso mostly upright (adjust for character type).
+- Motion is calm and readable — notably slower and more relaxed than running.
+- Reflect the character's personality in the motion.
 
-BACKGROUND:
-- Keep the background simple and neutral if necessary.
+ARMS / HANDS:
+- Relaxed swing opposite to legs (or character-appropriate arm behavior).
+- If holding equipment: KEEP grip exact. Adjust pose around the equipment — never hide or drop it.
+
+EQUIPMENT (NON-NEGOTIABLE):
+- ALL held or worn equipment must remain FULLY VISIBLE.
+- Do NOT hide behind the body, crop, merge with limbs, or obscure in any way.
+- If a limb would overlap equipment → adjust the limb, not the equipment.
+- Preserve original size, shape, and orientation of all equipment.
+- Equipment visibility always takes priority over pose perfection.
+
+PRESERVE EXACTLY:
+- Face, colors, outfit, proportions, and all design details.
+- Do not add or remove any elements.
+
+COMPOSITION:
+- Clean, readable silhouette with no merged limbs or equipment.
+- White background.
 
 GOAL:
-Produce a clean SIDE-PROFILE walking sprite frame suitable for a 2D side-scrolling animation, with relaxed movement and strict side-view orientation.
+A polished side-view walking frame that looks and feels natural for THIS specific character, with all equipment fully visible and unobstructed.
 """
 
 
 POSE_PROMPT_IDLE = """
-You are an image editor. Repose the subject into a clean 2D game sprite-friendly IDLE reference pose while preserving the character’s original identity, design, and equipment.
+You are an expert 2D sprite artist and animator. Your task is to repose the given character into a natural IDLE / RESTING pose.
 
-VIEW AND ORIENTATION:
-- The character should stand in a neutral idle stance.
-- The character may face forward or slightly toward the viewer (front or slight 3/4 view).
-- The pose should look like a calm reference frame from a 2D game sprite sheet.
-- The full body must be visible from head to toe.
-- The character should be centered and clearly visible.
+STEP 1 — READ THE CHARACTER:
+Before posing, study the image carefully and identify:
+- What type of character is this? (human, zombie, robot, animal, monster, ghost, etc.)
+- What does "at rest" look like for this character? (standing alert, slouched, hovering, crouching, etc.)
+- What equipment or items are they holding or wearing?
+- What are their unique physical traits? (extra limbs, unusual proportions, floating parts, etc.)
 
-IDLE POSE REQUIREMENTS:
-- The character should stand relaxed and balanced.
-- The body posture should be upright and stable.
-- Both feet should be naturally placed on the ground.
-- The pose should look calm and stationary.
+STEP 2 — DEFINE THEIR IDLE STYLE:
+Apply a resting pose that feels TRUE to this character's nature:
+- Human warrior → upright, composed, weapon held ready at side
+- Zombie → slumped, head dropped, arms hanging loosely
+- Robot → rigid stand-by posture, arms close to body
+- Animal / creature → natural resting stance with all limbs grounded
+- Ghost / floater → hovering slightly, calm drift
+- Any other character → use visual logic and lore knowledge to determine their natural resting state
 
-ARM / LIMB POSITION:
-- Arms or front limbs should rest naturally beside the body.
-- Hands, paws, or claws should appear relaxed.
-- No exaggerated movement or action pose.
+The pose must feel like THIS character at rest — not a generic human standing.
 
-ANIMAL / CREATURE RULES:
-If the subject is an animal or creature:
-- The creature should stand in a natural idle stance.
-- All legs should be grounded and balanced.
-- Maintain natural anatomy and species posture.
+STEP 3 — APPLY THE POSE:
 
-EQUIPMENT AND PROPS:
-- ALL original equipment must remain visible.
-- Weapons, armor, tools, and accessories must NOT disappear.
-- Equipment should appear naturally positioned in the idle stance.
+VIEW:
+- Neutral front-facing or very slight 3/4 view. No extreme angles.
+- Full body visible. No cropping.
+- Character centered and clearly readable.
 
-STRICT PRESERVATION RULES:
-- DO NOT change the character’s face, identity, species, clothing, fur, armor, or colors.
-- DO NOT redesign the character.
-- DO NOT alter body proportions.
-- DO NOT crop the subject.
+IDLE POSE:
+- Calm, balanced, grounded stance (or hover for floaters).
+- No action, tension, or motion.
+- Reflect the character's personality — a zombie looks dead even standing still; a knight looks composed.
 
-BACKGROUND:
-- Keep the background simple and neutral.
+ARMS / LIMBS:
+- Relaxed and natural for this character type.
+- No tension, no motion blur, no action position.
+- If holding equipment: KEEP grip exact. Arms rest naturally around it.
+
+EQUIPMENT (NON-NEGOTIABLE):
+- ALL held or worn equipment must remain FULLY VISIBLE.
+- Do NOT hide behind the body, crop, merge with limbs, or obscure in any way.
+- If a limb would overlap equipment → adjust the limb, not the equipment.
+- Preserve original size, shape, and orientation of all equipment.
+- Equipment visibility always takes priority over pose perfection.
+
+PRESERVE EXACTLY:
+- Face, colors, outfit, proportions, and all design details.
+- Do not add or remove any elements.
+
+COMPOSITION:
+- Clean, readable silhouette with no merged limbs or equipment.
+- White background.
 
 GOAL:
-Create a clean idle reference pose suitable for a 2D game sprite sheet while preserving the character’s appearance and personality.
+A clean, natural idle pose that captures who this character IS at rest, with all equipment fully visible and unobstructed.
 """
 
 
 POSE_PROMPT_JUMPING = """
-You are an image editor. Repose the subject into a clean 2D game sprite-friendly JUMPING pose while preserving the character’s original identity, equipment, and design.
+You are an expert 2D sprite artist and animator. Your task is to repose the given character into a JUMPING animation frame.
 
-VIEW AND ORIENTATION:
-- The subject should appear in a clear mid-air jumping pose.
-- The character should face RIGHT (moving LEFT → RIGHT).
-- The full body must be visible from head to toe.
-- The character should resemble a frame from a 2D side-scrolling game animation.
+STEP 1 — READ THE CHARACTER:
+Before posing, study the image carefully and identify:
+- What type of character is this? (human, zombie, robot, animal, monster, ghost, etc.)
+- What would a jump or leap look like for this character? (athletic, stiff, feral, floating, etc.)
+- What equipment or items are they holding or wearing?
+- What are their unique physical traits? (extra limbs, unusual proportions, floating parts, etc.)
 
-JUMPING POSE REQUIREMENTS:
-- The character must appear airborne (not touching the ground).
-- Legs should be bent naturally as if pushing upward or mid-jump.
-- The torso should show upward motion or slight lift.
-- The pose should clearly communicate a jump frame.
+STEP 2 — DEFINE THEIR JUMPING STYLE:
+Apply a jump pose that feels TRUE to this character's nature:
+- Human warrior → powerful athletic leap, legs tucked or extended, controlled
+- Zombie → awkward lurch upward, stiff or flailing limbs, uncoordinated
+- Robot → rigid mechanical jump, minimal bend, precise
+- Animal / creature → species-appropriate mid-leap, natural arc
+- Ghost / floater → dramatic upward surge or ascent, minimal limb change
+- Any other character → use visual logic and lore knowledge to determine how THEY would jump
 
-ARM / LIMB POSITION:
-- Arms should move naturally to maintain balance during the jump.
-- Limbs should not look stiff or symmetrical.
-- The silhouette should clearly show motion.
+The pose must feel like THIS character jumping — not a generic human jump.
 
-ANIMAL / CREATURE RULES:
-If the subject is an animal or creature:
-- The creature should appear mid-leap.
-- Legs should bend naturally as part of a jumping motion.
-- Maintain realistic anatomy for the species.
+STEP 3 — APPLY THE POSE:
 
-EQUIPMENT AND PROPS:
-- ALL original equipment must remain visible.
-- Weapons, armor, tools, and accessories must NOT disappear.
-- Equipment must remain naturally positioned during the jump.
+VIEW:
+- TRUE SIDE PROFILE (pure 90°). No 3/4 view, no rotation.
+- Character faces RIGHT.
+- Full body visible. No cropping.
 
-STRICT PRESERVATION RULES:
-- DO NOT change the character’s face, identity, species, clothing, fur, armor, or colors.
-- DO NOT redesign the character.
-- DO NOT alter body proportions.
-- DO NOT crop the subject.
+JUMPING MOTION:
+- Clearly airborne — fully off the ground.
+- Legs bent or extended in a way natural to this character.
+- Upward energy must be readable at a glance.
+- Avoid stiff or symmetrical limb placement.
 
-BACKGROUND:
-- Keep the background simple and neutral.
+ARMS / HANDS:
+- Move naturally for balance and character personality.
+- If holding equipment: KEEP grip exact. Adjust pose around the equipment — never hide or drop it.
+
+EQUIPMENT (NON-NEGOTIABLE):
+- ALL held or worn equipment must remain FULLY VISIBLE.
+- Do NOT hide behind the body, crop, merge with limbs, or obscure in any way.
+- If a limb would overlap equipment → adjust the limb, not the equipment.
+- Preserve original size, shape, and orientation of all equipment.
+- Equipment visibility always takes priority over pose perfection.
+
+PRESERVE EXACTLY:
+- Face, colors, outfit, proportions, and all design details.
+- Do not add or remove any elements.
+
+COMPOSITION:
+- Clean, readable silhouette with no merged limbs or equipment.
+- White background.
 
 GOAL:
-Create a clean jumping animation frame suitable for a 2D side-scrolling sprite sheet while preserving the character’s appearance and personality.
+A polished side-view jump frame that looks and feels natural for THIS specific character, with all equipment fully visible and unobstructed.
 """
-

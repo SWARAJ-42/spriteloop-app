@@ -26,37 +26,37 @@ interface GalleryItem {
 
 const showcaseItems: GalleryItem[] = [
   {
-    name: "Star Captain",
+    name: "Animation 0",
     type: "Walk Cycle",
     src: animation_0,
   },
   {
-    name: "Star Captain",
+    name: "Animation 1",
     type: "Walk Cycle",
     src: animation_1,
   },
   {
-    name: "Nebula Mage",
+    name: "Animation 2",
     type: "Spell Cast",
     src: animation_2,
   },
   {
-    name: "Solar Berserker",
+    name: "Animation 3",
     type: "Attack",
     src: animation_3,
   },
   {
-    name: "Cryo Sentinel",
+    name: "Animation 4",
     type: "Idle",
     src: animation_4,
   },
   {
-    name: "Void Assassin",
+    name: "Animation 5",
     type: "Dash",
     src: animation_5,
   },
   {
-    name: "Astral Spirit",
+    name: "Animation 6",
     type: "Float",
     src: animation_6,
   },

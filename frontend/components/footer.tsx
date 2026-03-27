@@ -19,7 +19,7 @@ export function Footer() {
               <Image
                 src={logo}
                 alt="logo"
-                className="w-[60px]"
+                className="w-[30px] mr-2"
               />
               <span className="retro text-[9px] text-foreground ">
                 SpriteLoop
@@ -32,12 +32,12 @@ export function Footer() {
 
             {/* Social links */}
             <div className="mt-4 flex gap-3">
-              {["X", "GH", "DC"].map((social) => (
+              {["Ln"].map((social) => (
                 <div
                   key={social}
                   className="flex h-7 w-7 items-center justify-center border border-border bg-background transition-colors hover:bg-primary hover:text-primary-foreground"
                 >
-                  <span className="retro text-[7px]">{social}</span>
+                  <a href="https://www.linkedin.com/company/spriteloop" target="_blank" className="retro text-[7px]">{social}</a>
                 </div>
               ))}
             </div>

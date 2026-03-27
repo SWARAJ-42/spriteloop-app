@@ -42,6 +42,7 @@ import running from "@/assets/guide/running.png";
 import idle from "@/assets/guide/idle.png";
 import walking from "@/assets/guide/walking.png";
 import jumping from "@/assets/guide/jumping.png";
+import { Navbar } from "@/components/navbar";
 
 export default function GuidePage() {
   const router = useRouter();
@@ -86,23 +87,17 @@ export default function GuidePage() {
 
   return (
     <div className="relative min-h-screen nebula-bg">
+      <Navbar />
       <div className="scanline-overlay absolute inset-0 z-0 pointer-events-none" />
 
       {/* Fixed Sidebar */}
-      <DashboardSidebar onCollapseChange={setSidebarCollapsed} />
+      {/* <DashboardSidebar onCollapseChange={setSidebarCollapsed} /> */}
 
-      <CreditCounter />
+      {/* <CreditCounter /> */}
 
       {/* Main content */}
       <div
-        className="relative z-10 min-h-screen transition-[margin] duration-300 ease-in-out"
-        style={{
-          marginLeft: isMdScreen
-            ? sidebarCollapsed
-              ? "80px"
-              : "350px"
-            : "80px",
-        }}
+        className="relative z-10 min-h-screen transition-[margin] duration-300 ease-in-out pt-32"
       >
         <div className="mx-auto max-w-4xl px-4 py-8 lg:px-6">
           {/* Header */}

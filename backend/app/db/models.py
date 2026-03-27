@@ -20,10 +20,12 @@ class User(Base):
     last_logout_at = Column(DateTime)
     deleted_at = Column(DateTime)
 
-    credits_remaining = Column(Integer, default=100)
-    credits_last_reset = Column(DateTime, server_default=func.now())
+    # 🔥 DODO
+    dodo_customer_id = Column(String, unique=True, index=True)
 
-    # ✅ FIXED: cascade delete
+    # 🔥 ONLY THING THAT MATTERS NOW
+    credits = Column(Integer, default=500)
+
     projects = relationship(
         "Project",
         back_populates="user",
@@ -79,12 +81,15 @@ class Generation(Base):
 class Payment(Base):
     __tablename__ = "payments"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
 
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"))
 
-    paypal_order_id = Column(String, unique=True, index=True)
+    dodo_payment_id = Column(String, unique=True, index=True)
 
+    amount = Column(Integer)
     credits_added = Column(Integer)
+
+    status = Column(String)  # processing, succeeded, failed, cancelled
 
     created_at = Column(DateTime, server_default=func.now())

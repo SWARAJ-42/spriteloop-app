@@ -2,7 +2,7 @@ from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.routers import auth, preprocess, projects, generations
+from app.routers import auth, preprocess, projects, generations, payments, webhooks
 from app.db.base import Base
 from app.db.session import engine
 import os
@@ -49,3 +49,5 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(preprocess.router, prefix="/api")
 app.include_router(projects.router, prefix="/api")
 app.include_router(generations.router, prefix="/api")
+app.include_router(payments.router, prefix="/api")
+app.include_router(webhooks.router, prefix="/api")

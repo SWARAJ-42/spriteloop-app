@@ -73,7 +73,7 @@ def pose_correct_bytes(image_bytes: bytes, animation_type: str) -> bytes:
                 ),
             )
 
-            print(resp)
+            # print(resp)
 
             for part in resp.parts:
                 if part.inline_data:

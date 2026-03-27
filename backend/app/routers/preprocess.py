@@ -22,6 +22,8 @@ from app.repo.poseCorrection import pose_correct_bytes
 from app.repo.postprocesspixalated import process_webp_bytes as pixelate_webp
 from app.repo.postprocessremovebg import process_webp as removebg_webp
 from app.services.azure_blob import upload_file_to_blob, generate_sas_url
+from app.services.credits import check_balance, charge_credits
+from app.services.dodo import client
 
 
 router = APIRouter(prefix="/main", tags=["Generation"])
@@ -43,14 +45,16 @@ async def get_user_credits(
     db: AsyncSession = Depends(get_db),
     firebase_user=Depends(get_current_user),
 ):
-
     uid = firebase_user["uid"]
 
-    result = await db.execute(select(User).where(User.firebase_uid == uid))
+    result = await db.execute(
+        select(User).where(User.firebase_uid == uid)
+    )
     user = result.scalar_one()
 
-    return {"credits_remaining": user.credits_remaining}
-
+    return {
+        "credits_remaining": user.credits or 0
+    }
 
 # ─────────────────────────────────────────────
 # Phase 1 – Pre Generate
@@ -76,34 +80,58 @@ async def pre_generate(
 
     image_bytes = await file.read()
 
-    if pose_correction == "true":
-        uid = firebase_user["uid"]
+    user = None
+    charged = False  # 🔥 track if we deducted
 
-        result = await db.execute(select(User).where(User.firebase_uid == uid))
-        user = result.scalar_one()
+    try:
+        if pose_correction == "true":
+            uid = firebase_user["uid"]
 
-        if user.credits_remaining < 5:
-            return {"success": False, "error": "No credits remaining"}
+            result = await db.execute(
+                select(User).where(User.firebase_uid == uid)
+            )
+            user = result.scalar_one()
 
-        user.credits_remaining -= 5
-        await db.commit()
+            balance = await check_balance(user)
 
-        # move to thread
-        image_bytes = await asyncio.to_thread(
-            pose_correct_bytes,
+            if balance < 5:
+                return {"success": False, "error": "No credits remaining"}
+
+            # 🔥 charge credits
+            await charge_credits(db, user, 5, "pose_correction")
+            charged = True
+
+            # 🔥 risky operation
+            image_bytes = await asyncio.to_thread(
+                pose_correct_bytes,
+                image_bytes,
+                animation_type
+            )
+
+        # ─────────────────────────────
+        # Preprocess (can also fail)
+        # ─────────────────────────────
+        processed_bytes = await asyncio.to_thread(
+            preprocess_sprite,
             image_bytes,
-            animation_type
+            pixel_art=True
         )
 
-    # move to thread
-    processed_bytes = await asyncio.to_thread(
-        preprocess_sprite,
-        image_bytes,
-        pixel_art=True
-    )
+        return Response(content=processed_bytes, media_type="image/png")
 
-    return Response(content=processed_bytes, media_type="image/png")
+    except Exception as e:
 
+        # 🔥 REFUND IF WE CHARGED
+        if charged and user:
+            user.credits = (user.credits or 0) + 5
+            await db.commit()
+
+            print("💸 REFUND APPLIED → +5 credits")
+
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
 # ─────────────────────────────────────────────
 # Phase 2 – Generate Animation
@@ -130,12 +158,19 @@ async def generate_animation(
     result = await db.execute(select(User).where(User.firebase_uid == uid))
     user = result.scalar_one()
 
-    if user.credits_remaining < 40:
+    # ───────────────
+    # CHECK BALANCE
+    # ───────────────
+    balance = await check_balance(user)
+
+    if balance < 40:
         return {"success": False, "error": "Not enough credits"}
 
-    # Deduct credits (we'll rollback if something fails)
-    user.credits_remaining -= 40
-    await db.commit()
+    # ───────────────
+    # CHARGE CREDITS
+    # ───────────────
+    await charge_credits(db, user, 40, "animation_generation")
+    refunded = False
 
     try:
         # ─────────────────────────────
@@ -224,11 +259,14 @@ async def generate_animation(
         return {"success": True, "frames": frames}
 
     except Exception as e:
-        # ─────────────────────────────
-        # CRITICAL: rollback credits
-        # ─────────────────────────────
-        user.credits_remaining += 40
-        await db.commit()
+
+        # 🔥 LOCAL REFUND (CORRECT)
+        if not refunded:
+            user.credits = (user.credits or 0) + 40
+            await db.commit()
+            refunded = True
+
+            print("💸 REFUND APPLIED → +40 credits")
 
         return {
             "success": False,
