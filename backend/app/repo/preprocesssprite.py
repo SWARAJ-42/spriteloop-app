@@ -140,14 +140,18 @@ def crop_to_subject(img,mask):
 # Pad to square
 # -----------------------------
 def pad_to_square(img):
+    w, h = img.size
+    size = max(w, h)
 
-    w,h = img.size
+    canvas = Image.new("RGB", (size, size), (255, 255, 255))
 
-    size = max(w,h)
+    # Horizontal: centered
+    x_offset = (size - w) // 2
 
-    canvas = Image.new("RGB",(size,size),(255,255,255))
+    # Vertical: push image to bottom (padding only on top)
+    y_offset = size - h
 
-    canvas.paste(img,((size-w)//2,(size-h)//2))
+    canvas.paste(img, (x_offset, y_offset))
 
     return canvas
 
@@ -164,11 +168,11 @@ def preprocess_sprite(image_bytes, pixel_art=True):
 
     mask = get_foreground_mask(img, model, transform)
 
-    cropped_img, cropped_mask = crop_to_subject(img, mask)
+    # cropped_img, cropped_mask = crop_to_subject(img, mask)
 
     white_bg_img = apply_pure_white_background(
-        cropped_img,
-        cropped_mask
+        img,
+        mask
     )
 
     squared = pad_to_square(white_bg_img)
