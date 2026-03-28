@@ -95,12 +95,16 @@ function extractPalette(imageData: ImageData, maxColors = 24): string[] {
   return palette.map(([r, g, b]) => rgbToHex(r, g, b));
 }
 
-/** Decode src into a grid — each cell samples the centre pixel of its block */
-async function srcToGrid(src: string): Promise<string[][]> {
+/** Decode src into a grid — each cell samples the centre pixel of its block. Returns grid + original dimensions */
+async function srcToGrid(src: string): Promise<{ grid: string[][]; originalWidth: number; originalHeight: number }> {
   return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
+      // Store original dimensions before any scaling
+      const originalWidth = img.naturalWidth;
+      const originalHeight = img.naturalHeight;
+      
       const off = document.createElement("canvas");
       off.width = IMG_SIZE;
       off.height = IMG_SIZE;
@@ -114,10 +118,14 @@ async function srcToGrid(src: string): Promise<string[][]> {
           return rgbToHex(r, g, b);
         }),
       );
-      resolve(grid);
+      resolve({ grid, originalWidth, originalHeight });
     };
     img.onerror = () =>
-      resolve(Array.from({ length: GRID }, () => Array(GRID).fill("#000000")));
+      resolve({ 
+        grid: Array.from({ length: GRID }, () => Array(GRID).fill("#000000")),
+        originalWidth: IMG_SIZE,
+        originalHeight: IMG_SIZE
+      });
     img.src = src;
   });
 }
@@ -140,16 +148,21 @@ async function paletteFromSrc(src: string): Promise<string[]> {
   });
 }
 
-/** Render the grid back to a 256×256 PNG data-URL */
-function gridToDataUrl(grid: string[][]): string {
+/** Render the grid back to a PNG data-URL at the specified dimensions (defaults to original IMG_SIZE) */
+function gridToDataUrl(grid: string[][], outputWidth: number = IMG_SIZE, outputHeight: number = IMG_SIZE): string {
   const off = document.createElement("canvas");
-  off.width = IMG_SIZE;
-  off.height = IMG_SIZE;
+  off.width = outputWidth;
+  off.height = outputHeight;
   const ctx = off.getContext("2d")!;
+  
+  // Calculate block size based on output dimensions
+  const blockWidth = outputWidth / GRID;
+  const blockHeight = outputHeight / GRID;
+  
   for (let row = 0; row < GRID; row++) {
     for (let col = 0; col < GRID; col++) {
       ctx.fillStyle = grid[row][col];
-      ctx.fillRect(col * BLOCK, row * BLOCK, BLOCK, BLOCK);
+      ctx.fillRect(col * blockWidth, row * blockHeight, blockWidth, blockHeight);
     }
   }
   return off.toDataURL("image/png");
@@ -199,7 +212,7 @@ function PixelEditor({
   onCancel: () => void;
   onNavigate: (newIndex: number) => void;
 }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+const canvasRef = useRef<HTMLCanvasElement>(null);
   const [grid, setGrid] = useState<string[][] | null>(null);
   const [originalGrid, setOriginalGrid] = useState<string[][] | null>(null);
   const [palette, setPalette] = useState<string[]>([]);
@@ -207,13 +220,15 @@ function PixelEditor({
   const [tool, setTool] = useState<PaintTool>("paint");
   const [isPainting, setIsPainting] = useState(false);
   const [loading, setLoading] = useState(true);
+  // Store original image dimensions to preserve size on save
+  const [originalDimensions, setOriginalDimensions] = useState<{ width: number; height: number }>({ width: IMG_SIZE, height: IMG_SIZE });
   
   // Undo/Redo history
   const [history, setHistory] = useState<string[][][]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const isUndoRedoAction = useRef(false);
 
-  // Load grid + palette
+// Load grid + palette
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -222,7 +237,7 @@ function PixelEditor({
     setHistoryIndex(-1);
     
     Promise.all([srcToGrid(src), paletteFromSrc(src)]).then(
-      ([g, extracted]) => {
+      ([gridResult, extracted]) => {
         if (cancelled) return;
         // Always put pure black + white first, then the rest deduplicated
         const rest = extracted.filter(
@@ -230,10 +245,12 @@ function PixelEditor({
         );
         setPalette(["#000000", "#ffffff", ...rest]);
         setSelectedColor("#000000");
-        setGrid(g);
-        setOriginalGrid(g.map((row) => [...row]));
+        setGrid(gridResult.grid);
+        setOriginalGrid(gridResult.grid.map((row) => [...row]));
+        // Store original dimensions to preserve size when saving
+        setOriginalDimensions({ width: gridResult.originalWidth, height: gridResult.originalHeight });
         // Initialize history with the original state
-        setHistory([g.map((row) => [...row])]);
+        setHistory([gridResult.grid.map((row) => [...row])]);
         setHistoryIndex(0);
         setLoading(false);
       },
@@ -388,9 +405,10 @@ function PixelEditor({
     if (isPainting) paintCell(e);
   };
 
-  const handleApplyClick = () => {
+const handleApplyClick = () => {
     if (grid) {
-      const dataUrl = gridToDataUrl(grid);
+      // Output at original dimensions to prevent shrinking
+      const dataUrl = gridToDataUrl(grid, originalDimensions.width, originalDimensions.height);
       onApply(dataUrl);
     }
   };

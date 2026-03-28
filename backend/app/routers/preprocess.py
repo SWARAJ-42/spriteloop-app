@@ -192,7 +192,8 @@ async def generate_animation(
                 "PBmcK7uc",
                 req.additional_prompt
             )
-        except Exception:
+        except Exception as e:
+            print(e)
             raise Exception("Failed to generate animation prompt")
 
         # ─────────────────────────────

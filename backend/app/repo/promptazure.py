@@ -32,7 +32,7 @@ def encode_image_bytes(image_bytes):
 def build_instruction(action, extra):
 
     examples = f"""
-EXAMPLES OF GOOD PROMPTS (RULE-COMPLIANT FORMAT):
+EXAMPLES:
 
 1. 
 2D game character running animation, side view, The grey wolf gallops to the right, first stretching its body into a fully extended mid-air leap with legs reaching outward. Upon landing, the wolf crouches low and arches its back, gathering its white-tipped paws underneath its belly to prepare for the next stride. The creature then pushes off the ground to spring back into the air, completing the looping run cycle, on a plain white background.
@@ -44,25 +44,19 @@ EXAMPLES OF GOOD PROMPTS (RULE-COMPLIANT FORMAT):
 2D game character running animation, side view, The astronaut performs a low-gravity run cycle, characterized by slow, buoyant push-offs and exaggerated horizontal strides. Each step involves a gentle floating arc with long airtime before the boots land and compress against the dusty surface. The bulky white suit moves with soft resistance, while the life-support backpack exhibits subtle secondary motion as it lags behind the body, on a plain white background.
 """
 
-    return f"""
-You generate STRICT single-line prompts for a 2D sprite animation system.
+    return f"""Generate a descriptive prompt for a 2D sprite animation.
 
-STYLE LEARNING:
-{examples}
-
-INSTRUCTIONS:
-- Output EXACTLY one line.
-- Must start with: "2D game character {action} animation, side view,"
-- Always end with: "on a plain white background."
-- Keep the same rich descriptive storytelling style as the examples.
+Guidelines:
+- Start with: 2D game character {action} animation, side view,
+- End with: on a plain white background.
+- Keep it as a single line.
+- Use a descriptive, visual storytelling style similar to the examples.
 - Only describe visible features from the image.
-- Do NOT invent new clothing, props, or colors.
-- Blend motion style naturally with any extra context.
+- Do not add new elements that are not present.
 
-EXTRA CONTEXT:
-{extra if extra else "none"}
+Extra context: {extra if extra else "none"}
 
-Now generate the prompt.
+{examples}
 """
 
 def generate_prompt_bytes(image_bytes, action, token, extra):
@@ -105,6 +99,8 @@ def generate_prompt_bytes(image_bytes, action, token, extra):
         prompt_prefix = f"{token},"
 
     print(f"{prompt_prefix} {response.choices[0].message.content.strip()}".strip())
+
+    # exit(0)
 
     return f"{prompt_prefix} {response.choices[0].message.content.strip()}".strip()
 

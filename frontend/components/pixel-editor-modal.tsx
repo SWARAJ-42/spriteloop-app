@@ -75,13 +75,18 @@ function extractPalette(imageData: ImageData, maxColors = 16): string[] {
 
 /**
  * Read the source image into an off-screen canvas and return a
- * flat array of hex colours for each BLOCK×BLOCK cell (row-major).
+ * flat array of hex colours for each BLOCK×BLOCK cell (row-major),
+ * along with the original image dimensions.
  */
-async function srcToGrid(src: string): Promise<string[][]> {
+async function srcToGrid(src: string): Promise<{ grid: string[][]; originalWidth: number; originalHeight: number }> {
   return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
+      // Store original dimensions
+      const originalWidth = img.naturalWidth;
+      const originalHeight = img.naturalHeight;
+
       const offscreen = document.createElement("canvas");
       offscreen.width = IMG_SIZE;
       offscreen.height = IMG_SIZE;
@@ -99,29 +104,38 @@ async function srcToGrid(src: string): Promise<string[][]> {
           grid[row][col] = rgbToHex(r, g, b);
         }
       }
-      resolve(grid);
+      resolve({ grid, originalWidth, originalHeight });
     };
     img.onerror = () => {
-      // Fallback: white grid
-      resolve(Array.from({ length: GRID }, () => Array(GRID).fill("#ffffff")));
+      // Fallback: white grid at default size
+      resolve({
+        grid: Array.from({ length: GRID }, () => Array(GRID).fill("#ffffff")),
+        originalWidth: IMG_SIZE,
+        originalHeight: IMG_SIZE,
+      });
     };
     img.src = src;
   });
 }
 
 /**
- * Convert the 32×32 colour grid back to a 256×256 data-URL PNG.
+ * Convert the 32×32 colour grid back to a data-URL PNG at the specified size.
+ * If no size is provided, defaults to IMG_SIZE (256×256).
  */
-function gridToDataUrl(grid: string[][]): string {
+function gridToDataUrl(grid: string[][], outputWidth: number = IMG_SIZE, outputHeight: number = IMG_SIZE): string {
   const offscreen = document.createElement("canvas");
-  offscreen.width = IMG_SIZE;
-  offscreen.height = IMG_SIZE;
+  offscreen.width = outputWidth;
+  offscreen.height = outputHeight;
   const ctx = offscreen.getContext("2d")!;
+
+  // Calculate block size based on output dimensions
+  const blockWidth = outputWidth / GRID;
+  const blockHeight = outputHeight / GRID;
 
   for (let row = 0; row < GRID; row++) {
     for (let col = 0; col < GRID; col++) {
       ctx.fillStyle = grid[row][col];
-      ctx.fillRect(col * BLOCK, row * BLOCK, BLOCK, BLOCK);
+      ctx.fillRect(col * blockWidth, row * blockHeight, blockWidth, blockHeight);
     }
   }
   return offscreen.toDataURL("image/png");
@@ -216,18 +230,19 @@ export function PixelEditorModal({
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  const [grid, setGrid] = useState<string[][] | null>(null);
+const [grid, setGrid] = useState<string[][] | null>(null);
   const [palette, setPalette] = useState<string[]>([]);
   const [selectedColor, setSelectedColor] = useState<string>("#000000");
   const [tool, setTool] = useState<Tool>("paint");
   const [isPainting, setIsPainting] = useState(false);
   const [originalGrid, setOriginalGrid] = useState<string[][] | null>(null);
+  const [originalDimensions, setOriginalDimensions] = useState<{ width: number; height: number }>({ width: IMG_SIZE, height: IMG_SIZE });
 
-  // ── Load image into grid + palette on mount ──────────────────
+// ── Load image into grid + palette on mount ──────────────────
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [g, p] = await Promise.all([
+      const [gridResult, p] = await Promise.all([
         srcToGrid(item.src),
         extractPaletteFromSrc(item.src),
       ]);
@@ -239,8 +254,10 @@ export function PixelEditorModal({
       )];
       setPalette(fullPalette);
       setSelectedColor(fullPalette[0]);
-      setGrid(g);
-      setOriginalGrid(g.map((row) => [...row]));
+      setGrid(gridResult.grid);
+      setOriginalGrid(gridResult.grid.map((row) => [...row]));
+      // Store original dimensions so we can output at the same size
+      setOriginalDimensions({ width: gridResult.originalWidth, height: gridResult.originalHeight });
     })();
     return () => { cancelled = true; };
   }, [item.src]);
@@ -347,10 +364,11 @@ export function PixelEditorModal({
     if (originalGrid) setGrid(originalGrid.map((row) => [...row]));
   };
 
-  // ── Apply / save ─────────────────────────────────────────────
+// ── Apply / save ─────────────────────────────────────────────
   const handleApply = () => {
     if (!grid) return;
-    const dataUrl = gridToDataUrl(grid);
+    // Output at the original image dimensions to prevent shrinking
+    const dataUrl = gridToDataUrl(grid, originalDimensions.width, originalDimensions.height);
     onSave(dataUrl);
     onClose();
   };
