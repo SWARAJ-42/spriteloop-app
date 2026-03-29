@@ -18,7 +18,7 @@ const plans = [
     price: "Free",
     period: "",
     features: [
-      "500 SpriteLoop Tokens",
+      "100 SpriteLoop Tokens",
       "All animations supported",
       "Pose Correction not available",
     ],

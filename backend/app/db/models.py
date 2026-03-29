@@ -24,7 +24,7 @@ class User(Base):
     dodo_customer_id = Column(String, unique=True, index=True)
 
     # 🔥 ONLY THING THAT MATTERS NOW
-    credits = Column(Integer, default=500)
+    credits = Column(Integer, default=100)
 
     projects = relationship(
         "Project",
