@@ -6,5 +6,5 @@ load_dotenv()
 
 client = AsyncDodoPayments(
     bearer_token=os.getenv("DODO_API_KEY"),
-    environment="test_mode",
+    environment="live_mode",
 )
