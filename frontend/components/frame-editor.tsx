@@ -485,83 +485,21 @@ export function PhaseFrames({
     setEditModeIndex(index);
   }, []);
 
-  async function buildGif(frames: string[]): Promise<Blob> {
-    return new Promise(async (resolve, reject) => {
-      // Pick a background that's guaranteed absent from your art.
-      // We enforce this by scanning + nudging any matching pixel BEFORE
-      // handing off to gif.js, so the quantizer never confuses them.
-      const BG_R = 0,
-        BG_G = 254,
-        BG_B = 1; // near-invisible green
-
-      const gif = new GIF({
-        workers: 2,
-        quality: 1,
-        workerScript: "/gif.worker.js",
-        transparent: (BG_R << 16) | (BG_G << 8) | BG_B,
-      });
-
-      for (const src of frames) {
-        const img = new Image();
-        img.src = src;
-        await new Promise<void>((res, rej) => {
-          img.onload = () => res();
-          img.onerror = () => rej(new Error("Frame failed to load"));
-        });
-
-        const w = img.naturalWidth || 256;
-        const h = img.naturalHeight || 256;
-        const canvas = document.createElement("canvas");
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
-
-        ctx.clearRect(0, 0, w, h);
-        ctx.drawImage(img, 0, 0);
-
-        const imageData = ctx.getImageData(0, 0, w, h);
-        const d = imageData.data;
-
-        for (let i = 0; i < d.length; i += 4) {
-          if (d[i + 3] < 128) {
-            // Fully transparent → replace with our exact chroma key
-            d[i] = BG_R;
-            d[i + 1] = BG_G;
-            d[i + 2] = BG_B;
-            d[i + 3] = 255;
-          } else {
-            d[i + 3] = 255; // force fully opaque
-            // If a real pixel accidentally matches our key, nudge it by 1
-            if (d[i] === BG_R && d[i + 1] === BG_G && d[i + 2] === BG_B) {
-              d[i + 2] = BG_B === 255 ? 254 : BG_B + 1;
-            }
-          }
-        }
-
-        ctx.putImageData(imageData, 0, 0);
-        gif.addFrame(canvas, { delay: 1000 / fps, copy: true });
-      }
-
-      gif.on("finished", (blob: Blob) => resolve(blob));
-      gif.on("error", reject);
-      gif.render();
-    });
-  }
-
-  const handleProjectSelect = async (projectId: number) => {
+  const handleProjectSelect = async (selectedProjectId: number) => {
     setSaving(true);
-
     try {
-      const gifBlob = await buildGif(activeFrames);
+      const rawFrames = activeFrames.map((f) =>
+        f.replace(/^data:image\/png;base64,/, ""),
+      );
 
       const res = await saveGif({
         job_id: "manual",
-        project_id: projectId,
-        gif: gifBlob,
+        project_id: selectedProjectId,
+        frames: rawFrames,
+        fps,
       });
 
       if (!res.success) throw new Error("Save failed");
-
       setSaved(true);
       setShowProjectModal(false);
     } catch (e: any) {
@@ -750,7 +688,11 @@ export function PhaseFrames({
   };
 
   const handleExportGif = async () => {
-    const blob = await buildGif(activeFrames);
+    const blob = await exportAnimation({
+      frames: stripBase64(activeFrames),
+      type: "gif",
+      fps,
+    });
     download(blob, "animation.gif");
   };
 

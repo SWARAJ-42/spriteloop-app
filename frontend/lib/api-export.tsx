@@ -15,9 +15,11 @@ export async function getToken() {
 export async function exportAnimation({
   frames,
   type,
+  fps = 12,
 }: {
   frames: string[];
-  type: "spritesheet" | "spine";
+  type: "spritesheet" | "spine" | "gif";
+  fps?: number;
 }) {
   const token = await getToken();
   const res = await fetch(`${API_URL}/export`, {
@@ -26,13 +28,9 @@ export async function exportAnimation({
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({
-      frames,
-      type,
-    }),
+    body: JSON.stringify({ frames, type, fps }),
   });
 
   if (!res.ok) throw new Error("Export failed");
-
-  return res.blob(); // ZIP file
+  return res.blob();
 }

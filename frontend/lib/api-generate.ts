@@ -122,31 +122,26 @@ export async function generateAnimation(
 export interface SaveGifRequest {
   job_id: string;
   project_id: number;
-  gif: Blob;
+  frames: string[];   // base64 PNG strings (no data: prefix)
+  fps: number;
 }
 
-export async function saveGif(
-  req: SaveGifRequest
-) {
-
+export async function saveGif(req: SaveGifRequest) {
   const token = await getToken();
 
   const formData = new FormData();
-
   formData.append("job_id", req.job_id);
   formData.append("project_id", String(req.project_id));
-  formData.append("gif", req.gif, "animation.gif");
+  formData.append("frames", JSON.stringify(req.frames));
+  formData.append("fps", String(req.fps));
 
   const res = await fetch(`${API_URL}/main/save`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    headers: { Authorization: `Bearer ${token}` },
     body: formData,
   });
 
   if (!res.ok) throw new Error(`save-gif: HTTP ${res.status}`);
-
   return res.json();
 }
 

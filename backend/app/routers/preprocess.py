@@ -10,6 +10,7 @@ from pathlib import Path
 import asyncio
 from fastapi.responses import JSONResponse
 import base64
+import json
 
 from app.api.deps import get_current_user
 from app.db.models import Project, Generation, User
@@ -334,56 +335,84 @@ def webp_bytes_to_frames(webp_bytes: bytes):
 
     return frames
 
+from PIL import Image
+import io
+import base64
+
 @router.post("/save")
 async def save_animation(
     job_id: str = Form(...),
     project_id: int = Form(...),
-    gif: UploadFile = File(...),
+    frames: str = Form(...),        # JSON array of base64 PNG strings
+    fps: int = Form(12),
     db: AsyncSession = Depends(get_db),
     firebase_user=Depends(get_current_user),
 ):
-
     uid = firebase_user["uid"]
 
-    # get user
     result = await db.execute(select(User).where(User.firebase_uid == uid))
     user = result.scalar_one()
 
-    # verify project ownership
     result = await db.execute(
         select(Project).where(Project.id == project_id, Project.user_id == user.id)
     )
     project = result.scalar_one()
 
-    # create generation row
     generation = Generation(
         project_id=project_id,
         name=f"generation_{job_id}",
         generation_type="animation",
         asset_path="",
     )
-
     db.add(generation)
     await db.commit()
     await db.refresh(generation)
 
-    content = await gif.read()
+    # Build GIF on the backend with Pillow — fully deterministic
+    frame_data = json.loads(frames)
+    pil_frames = []
+    for b64 in frame_data:
+        raw = base64.b64decode(b64)
+        img = Image.open(io.BytesIO(raw)).convert("RGBA")
+        pil_frames.append(img)
+
+    gif_bytes = await asyncio.to_thread(build_gif, pil_frames, fps)
 
     blob_name = f"users/{user.id}/projects/{project_id}/generations/{generation.id}/animation.gif"
-
-    # offload Azure upload
-    await asyncio.to_thread(upload_file_to_blob, content, blob_name)
+    await asyncio.to_thread(upload_file_to_blob, gif_bytes, blob_name)
 
     generation.asset_path = blob_name
     await db.commit()
 
     sas_url = generate_sas_url(blob_name)
+    return {"success": True, "generation_id": generation.id, "saved_asset_url": sas_url}
 
-    return {
-        "success": True,
-        "generation_id": generation.id,
-        "saved_asset_url": sas_url,
-    }
+
+def build_gif(pil_frames: list[Image.Image], fps: int) -> bytes:
+    duration_ms = int(1000 / fps)
+    buf = io.BytesIO()
+
+    # Convert each RGBA frame — transparent pixels become palette index 0
+    converted = []
+    for frame in pil_frames:
+        # Quantize preserving transparency
+        converted.append(frame.convert("RGBA"))
+
+    first = converted[0]
+    rest = converted[1:]
+
+    first.save(
+        buf,
+        format="GIF",
+        save_all=True,
+        append_images=rest,
+        loop=0,
+        duration=duration_ms,
+        disposal=2,          # restore to background between frames — critical for transparency
+        optimize=False,      # don't let Pillow re-quantize across frames
+    )
+
+    return buf.getvalue()
 
 class FrameProcessRequest(BaseModel):
     frames: list[str]
