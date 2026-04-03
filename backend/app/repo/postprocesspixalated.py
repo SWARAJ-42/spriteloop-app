@@ -490,7 +490,9 @@ def process_webp_bytes(webp_bytes, n_colors=24, target_size=64, upscale=8):
 
     # --- Step 4: Temporal stabilisation ---
     if n > 1:
+        print("Before stabilise:", len(downsampled))
         downsampled = stabilise(downsampled)
+        print("After stabilise:", len(downsampled))
 
     # --- Step 5: Outline ---
     downsampled = [add_outline(f) for f in downsampled]
@@ -500,6 +502,9 @@ def process_webp_bytes(webp_bytes, n_colors=24, target_size=64, upscale=8):
 
     # --- Encode output ---
     buf = io.BytesIO()
+
+    for i, img in enumerate(processed):
+        img.putpixel((0, 0), (i % 255, 0, 0, 255))
 
     if len(processed) == 1:
         processed[0].save(buf, format="WEBP", lossless=True)

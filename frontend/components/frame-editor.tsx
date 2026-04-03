@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Pencil } from "lucide-react";
+import { download } from "@/lib/download";
+import { Pencil, Undo2, Redo2 } from "lucide-react";
 import { Button } from "@/components/ui/8bit/button";
 import { Badge } from "@/components/ui/8bit/badge";
 import {
@@ -16,6 +17,15 @@ import { createProject, fetchProjects } from "@/lib/api-projects";
 import { ProjectSelectModal } from "@/components/project-select-model";
 import GIF from "gif.js";
 import { FrameModal } from "./frame-modal";
+import { removeBackgroundFrames, pixelateFramesApi } from "@/lib/api-generate";
+import { ExportModal } from "./exportModal";
+import { exportAnimation } from "@/lib/api-export";
+
+// ─── History state type ────────────────────────────────────────
+interface HistoryState {
+  frameList: FrameItem[];
+  keptUids: Set<number>;
+}
 
 // ─── Frame item type ───────────────────────────────────────────
 let _uidCounter = 0;
@@ -260,6 +270,12 @@ function FrameGrid({
   );
 }
 
+/** Ensure frame src has proper data URL prefix for PNG images */
+function ensureDataUrl(src: string): string {
+  if (src.startsWith("data:")) return src;
+  return `data:image/png;base64,${src}`;
+}
+
 // ─── Phase 3 ──────────────────────────────────────────────────
 export function PhaseFrames({
   frames,
@@ -271,16 +287,19 @@ export function PhaseFrames({
   onBack: () => void;
 }) {
   // frameList holds the mutable ordered list with stable UIDs
+  // Ensure frames have proper data URL prefix for transparency support
   const [frameList, setFrameList] = useState<FrameItem[]>(() =>
-    frames.map((src) => ({ uid: makeId(), src })),
+    frames.map((src) => ({ uid: makeId(), src: ensureDataUrl(src) })),
   );
   // keptUids tracks which UIDs are selected (all on by default)
   const [keptUids, setKeptUids] = useState<Set<number>>(
     () => new Set(frames.map((_, i) => i + 1)), // mirrors initial UIDs from makeId()
   );
   // activeFrames drive the preview — only updated on "Apply"
-  const [activeFrames, setActiveFrames] = useState<string[]>(frames);
-  const [fps, setFps] = useState(8);
+  const [activeFrames, setActiveFrames] = useState<string[]>(() =>
+    frames.map(ensureDataUrl),
+  );
+  const [fps, setFps] = useState(12);
   const [currentFrame, setCurrentFrame] = useState(0);
   const [modalIndex, setModalIndex] = useState<number | null>(null);
   const [editModeIndex, setEditModeIndex] = useState<number | null>(null);
@@ -290,6 +309,76 @@ export function PhaseFrames({
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [projects, setProjects] = useState([]);
+  const [showExportModal, setShowExportModal] = useState(false);
+
+  // ─── Undo/Redo History ─────────────────────────────────────────
+  const [history, setHistory] = useState<HistoryState[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const isUndoRedoAction = useRef(false);
+
+  // Initialize history with initial state
+  useEffect(() => {
+    if (history.length === 0) {
+      const initialState: HistoryState = {
+        frameList: frameList.map((f) => ({ ...f })),
+        keptUids: new Set(keptUids),
+      };
+      setHistory([initialState]);
+      setHistoryIndex(0);
+    }
+  }, []);
+
+  const canUndo = historyIndex > 0;
+  const canRedo = historyIndex < history.length - 1;
+
+  const handleUndo = useCallback(() => {
+    if (!canUndo) return;
+    isUndoRedoAction.current = true;
+    const newIndex = historyIndex - 1;
+    const prevState = history[newIndex];
+    setHistoryIndex(newIndex);
+    setFrameList(prevState.frameList.map((f) => ({ ...f })));
+    setKeptUids(new Set(prevState.keptUids));
+    // Update active frames to match the restored state
+    const restoredActiveFrames = prevState.frameList
+      .filter((f) => prevState.keptUids.has(f.uid))
+      .map((f) => f.src);
+    setActiveFrames(restoredActiveFrames);
+  }, [canUndo, historyIndex, history]);
+
+  const handleRedo = useCallback(() => {
+    if (!canRedo) return;
+    isUndoRedoAction.current = true;
+    const newIndex = historyIndex + 1;
+    const nextState = history[newIndex];
+    setHistoryIndex(newIndex);
+    setFrameList(nextState.frameList.map((f) => ({ ...f })));
+    setKeptUids(new Set(nextState.keptUids));
+    // Update active frames to match the restored state
+    const restoredActiveFrames = nextState.frameList
+      .filter((f) => nextState.keptUids.has(f.uid))
+      .map((f) => f.src);
+    setActiveFrames(restoredActiveFrames);
+  }, [canRedo, historyIndex, history]);
+
+  // Keyboard shortcuts for undo/redo
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      }
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        (e.key === "y" || (e.shiftKey && e.key === "z"))
+      ) {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [handleUndo, handleRedo]);
 
   // pending = preview doesn't reflect current kept+order
   const pendingChanges = useRef(false);
@@ -301,9 +390,26 @@ export function PhaseFrames({
   pendingChanges.current = activeKey !== currentKey;
 
   const handleApply = () => {
-    const ordered = frameList
-      .filter((f) => keptUids.has(f.uid))
-      .map((f) => f.src);
+    // Get only the kept frames
+    const keptFrameList = frameList.filter((f) => keptUids.has(f.uid));
+    const ordered = keptFrameList.map((f) => f.src);
+
+    // Push current state to history before making changes
+    setHistory((prev) => {
+      const newHistory = prev.slice(0, historyIndex + 1);
+      newHistory.push({
+        frameList: frameList.map((f) => ({ ...f })),
+        keptUids: new Set(keptUids),
+      });
+      if (newHistory.length > 20) newHistory.shift();
+      return newHistory;
+    });
+    setHistoryIndex((prev) => Math.min(prev + 1, 19));
+
+    // Remove deselected frames from frameList entirely
+    setFrameList(keptFrameList);
+    // Update keptUids to only contain the kept frame UIDs (all remaining frames are kept)
+    setKeptUids(new Set(keptFrameList.map((f) => f.uid)));
     setActiveFrames(ordered);
     setCurrentFrame(0);
   };
@@ -336,14 +442,20 @@ export function PhaseFrames({
     setFrameList((prev) => {
       const idx = prev.findIndex((f) => f.uid === uid);
       if (idx === -1) return prev;
-      const newItem: FrameItem = { uid: makeId(), src: prev[idx].src };
+
+      // Explicitly ensure the source is a valid Data URL
+      const newItem: FrameItem = {
+        uid: makeId(),
+        src: ensureDataUrl(prev[idx].src),
+      };
+
       const next = [...prev];
       next.splice(idx + 1, 0, newItem);
-      setKeptUids((k) => {
-        const n = new Set(k);
-        n.add(newItem.uid);
-        return n;
-      });
+
+      // Update keptUids immediately in the same cycle if possible
+      // or ensure the API call checks the list properly.
+      setKeptUids((k) => new Set(k).add(newItem.uid));
+
       return next;
     });
   }, []);
@@ -351,18 +463,21 @@ export function PhaseFrames({
   // Handle frame save from modal (updates the frame source)
   const handleFrameSave = useCallback((uid: number, newSrc: string) => {
     setFrameList((prev) =>
-      prev.map((f) => (f.uid === uid ? { ...f, src: newSrc } : f))
+      prev.map((f) => (f.uid === uid ? { ...f, src: newSrc } : f)),
     );
   }, []);
 
   // Handle navigation in modals
-  const handleModalNavigate = useCallback((newIndex: number) => {
-    if (newIndex >= 0 && newIndex < frameList.length) {
-      setModalIndex(newIndex);
-      // Reset editModeIndex when navigating - edit mode will be handled by the modal itself
-      setEditModeIndex(null);
-    }
-  }, [frameList.length]);
+  const handleModalNavigate = useCallback(
+    (newIndex: number) => {
+      if (newIndex >= 0 && newIndex < frameList.length) {
+        setModalIndex(newIndex);
+        // Reset editModeIndex when navigating - edit mode will be handled by the modal itself
+        setEditModeIndex(null);
+      }
+    },
+    [frameList.length],
+  );
 
   // Open pixel editor directly
   const handleEditPixels = useCallback((index: number) => {
@@ -371,28 +486,51 @@ export function PhaseFrames({
   }, []);
 
   async function buildGif(frames: string[]): Promise<Blob> {
-    return new Promise(async (resolve) => {
+    return new Promise(async (resolve, reject) => {
+      const TRANSPARENT_COLOR = 0xff00ff; // magenta — rare in pixel art
+
       const gif = new GIF({
         workers: 2,
         quality: 10,
         workerScript: "/gif.worker.js",
+        transparent: TRANSPARENT_COLOR,
       });
 
       for (const src of frames) {
         const img = new Image();
         img.src = src;
-
-        await new Promise((res) => {
-          img.onload = res;
+        await new Promise<void>((res, rej) => {
+          img.onload = () => res();
+          img.onerror = () => rej(new Error("Frame failed to load"));
         });
 
-        gif.addFrame(img, { delay: 1000 / fps });
+        const canvas = document.createElement("canvas");
+        canvas.width = img.naturalWidth || 256;
+        canvas.height = img.naturalHeight || 256;
+        const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+
+        // Draw the frame (transparent pixels remain alpha=0)
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+
+        // Replace transparent pixels with the chroma key color
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const d = imageData.data;
+        for (let i = 0; i < d.length; i += 4) {
+          if (d[i + 3] < 128) {
+            d[i] = 0xff; // R
+            d[i + 1] = 0x00; // G
+            d[i + 2] = 0xff; // B
+            d[i + 3] = 0xff; // fully opaque so gif.js sees the key color
+          }
+        }
+        ctx.putImageData(imageData, 0, 0);
+
+        gif.addFrame(canvas, { delay: 1000 / fps });
       }
 
-      gif.on("finished", (blob: Blob) => {
-        resolve(blob);
-      });
-
+      gif.on("finished", (blob: Blob) => resolve(blob));
+      gif.on("error", reject);
       gif.render();
     });
   }
@@ -418,6 +556,189 @@ export function PhaseFrames({
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleRemoveBg = async () => {
+    try {
+      setSaving(true);
+
+      // Only process kept/selected frames
+      const keptFrames = frameList.filter((f) => keptUids.has(f.uid));
+      if (keptFrames.length === 0) {
+        setError("No frames selected");
+        return;
+      }
+
+      const base64Frames = keptFrames.map((f) =>
+        f.src.replace(/^data:image\/png;base64,/, ""),
+      );
+
+      const res = await removeBackgroundFrames({
+        frames: base64Frames,
+      });
+
+      const updated = res.frames.map((b64) => `data:image/png;base64,${b64}`);
+
+      // Create a map of uid -> updated src for kept frames
+      const updatedMap = new Map<number, string>();
+      keptFrames.forEach((f, i) => {
+        updatedMap.set(f.uid, updated[i]);
+      });
+
+      // Compute new frame list
+      const newFrameList = frameList.map((f) =>
+        updatedMap.has(f.uid) ? { ...f, src: updatedMap.get(f.uid)! } : f,
+      );
+
+      // Push NEW state to history (so undo goes back to current state)
+      setHistory((prev) => {
+        const newHistory = prev.slice(0, historyIndex + 1);
+        newHistory.push({
+          frameList: newFrameList.map((f) => ({ ...f })),
+          keptUids: new Set(keptUids),
+        });
+        if (newHistory.length > 20) newHistory.shift();
+        return newHistory;
+      });
+      setHistoryIndex((prev) => Math.min(prev + 1, 19));
+
+      // Update state
+      setFrameList(newFrameList);
+      setActiveFrames(updated);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handlePixelate = async () => {
+    try {
+      setSaving(true);
+
+      // Only process kept/selected frames
+      const keptFrames = frameList.filter((f) => keptUids.has(f.uid));
+      if (keptFrames.length === 0) {
+        setError("No frames selected");
+        return;
+      }
+
+      // Get dimensions of first frame to normalize all frames
+      const firstFrameSrc = keptFrames[0].src;
+      const targetDimensions = await new Promise<{
+        width: number;
+        height: number;
+      }>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () =>
+          resolve({ width: img.naturalWidth, height: img.naturalHeight });
+        img.onerror = () => reject(new Error("Failed to load first frame"));
+        img.src = firstFrameSrc;
+      });
+
+      // Normalize all frames to the same dimensions before sending to API
+      const normalizedBase64Frames: string[] = [];
+      for (const frame of keptFrames) {
+        const img = new Image();
+        img.src = frame.src;
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => resolve();
+          img.onerror = () => reject(new Error("Failed to load frame"));
+        });
+
+        // If dimensions match, use as-is; otherwise resize
+        if (
+          img.naturalWidth === targetDimensions.width &&
+          img.naturalHeight === targetDimensions.height
+        ) {
+          normalizedBase64Frames.push(
+            frame.src.replace(/^data:image\/png;base64,/, ""),
+          );
+        } else {
+          // Resize frame to target dimensions
+          const canvas = document.createElement("canvas");
+          canvas.width = targetDimensions.width;
+          canvas.height = targetDimensions.height;
+          const ctx = canvas.getContext("2d")!;
+          ctx.imageSmoothingEnabled = false; // Keep pixelated look
+          ctx.drawImage(
+            img,
+            0,
+            0,
+            targetDimensions.width,
+            targetDimensions.height,
+          );
+          const resizedBase64 = canvas
+            .toDataURL("image/png")
+            .replace(/^data:image\/png;base64,/, "");
+          normalizedBase64Frames.push(resizedBase64);
+        }
+      }
+
+      const res = await pixelateFramesApi({
+        frames: normalizedBase64Frames,
+      });
+
+      const updated = res.frames.map((b64) => `data:image/png;base64,${b64}`);
+
+      // Create a map of uid -> updated src for kept frames
+      const updatedMap = new Map<number, string>();
+      keptFrames.forEach((f, i) => {
+        updatedMap.set(f.uid, updated[i]);
+      });
+
+      // Compute new frame list
+      const newFrameList = frameList.map((f) =>
+        updatedMap.has(f.uid) ? { ...f, src: updatedMap.get(f.uid)! } : f,
+      );
+
+      // Push NEW state to history (so undo goes back to current state)
+      setHistory((prev) => {
+        const newHistory = prev.slice(0, historyIndex + 1);
+        newHistory.push({
+          frameList: newFrameList.map((f) => ({ ...f })),
+          keptUids: new Set(keptUids),
+        });
+        if (newHistory.length > 20) newHistory.shift();
+        return newHistory;
+      });
+      setHistoryIndex((prev) => Math.min(prev + 1, 19));
+
+      // Update state
+      setFrameList(newFrameList);
+      setActiveFrames(updated);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  function stripBase64(frames: string[]) {
+    return frames.map((f) => f.replace(/^data:image\/png;base64,/, ""));
+  }
+
+  const handleExportSpritesheet = async () => {
+    const blob = await exportAnimation({
+      frames: stripBase64(activeFrames),
+      type: "spritesheet",
+    });
+
+    download(blob, "spritesheet.zip");
+  };
+
+  const handleExportSpine = async () => {
+    const blob = await exportAnimation({
+      frames: stripBase64(activeFrames),
+      type: "spine",
+    });
+
+    download(blob, "spine.zip");
+  };
+
+  const handleExportGif = async () => {
+    const blob = await buildGif(activeFrames);
+    download(blob, "animation.gif");
   };
 
   const keptCount = keptUids.size;
@@ -455,20 +776,40 @@ export function PhaseFrames({
         />
       )}
 
-<div className="flex flex-col lg:flex-row w-full max-w-6xl gap-4 lg:gap-6 px-4 lg:px-0">
+      <div className="flex flex-col lg:flex-row w-full max-w-6xl gap-4 lg:gap-6 px-4 lg:px-0">
         {/* Left — Preview + controls */}
         <Card
           font="retro"
           className="border-border bg-card w-full lg:w-[35%] shrink-0"
         >
-          <CardHeader className="pb-2 pt-3 px-4">
-            <CardTitle className="text-[11px]">Preview</CardTitle>
-            <CardDescription className="text-[8px]">
-              Live playback at {fps} FPS
-            </CardDescription>
+          <CardHeader className="px-4">
+            <CardTitle className="flex justify-between items-center text-[11px]">
+              Preview
+              {/* UNDO/REDO BUTTONS */}
+              <div className="flex gap-2 w-fit">
+                <button
+                  className="flex-1 text-[12px] border-2 rounded-full p-3"
+                  onClick={handleUndo}
+                  disabled={!canUndo}
+                  title="Undo (Ctrl+Z)"
+                >
+                  <Undo2 size={12} className="mr-1 font-bold" />
+                </button>
+
+                <button
+                  className="flex-1 text-[12px] border-2 rounded-full p-3"
+                  onClick={handleRedo}
+                  disabled={!canRedo}
+                  title="Redo (Ctrl+Y)"
+                >
+                  <Redo2 size={12} className="mr-1 font-bold" />
+                </button>
+              </div>
+            </CardTitle>
+            <CardDescription className="flex items-center text-[8px]"></CardDescription>
           </CardHeader>
 
-          <CardContent className="space-y-2 px-4 pb-4">
+          <CardContent className="space-y-2 px-4">
             <div className="flex aspect-square max-h-[300px] lg:max-h-none items-center justify-center border-2 border-border bg-background/50 mx-auto w-full">
               {activeFrames.length > 0 ? (
                 <img
@@ -532,18 +873,36 @@ export function PhaseFrames({
               >
                 None
               </Button>
-            </div>
-
-            <div className="flex gap-1">
               <Button
                 font="retro"
-                className="w-fit text-[7px] w-full"
+                className="flex-1 text-[7px]"
                 onClick={handleApply}
                 disabled={keptCount === 0}
               >
-                {pendingChanges.current
-                  ? "Apply to Preview *"
-                  : "Apply to Preview"}
+                {pendingChanges.current ? "Apply *" : "Apply"}
+              </Button>
+            </div>
+
+            {/* TOOL BUTTONS (UI ONLY) */}
+            <div className="flex gap-2">
+              <Button
+                font="retro"
+                variant="outline"
+                className="flex-1 text-[7px]"
+                onClick={handleRemoveBg}
+                disabled={keptCount === 0 || saving}
+              >
+                BG Remove
+              </Button>
+
+              <Button
+                font="retro"
+                variant="outline"
+                className="flex-1 text-[7px]"
+                onClick={handlePixelate}
+                disabled={keptCount === 0 || saving}
+              >
+                Pixelate
               </Button>
             </div>
 
@@ -562,7 +921,15 @@ export function PhaseFrames({
                 onClick={() => setShowProjectModal(true)}
                 disabled={keptCount === 0 || saving}
               >
-                {saving ? "Saving..." : "Save Animation"}
+                {saving ? "Save" : "Save"}
+              </Button>
+              <Button
+                font="retro"
+                variant="outline"
+                className="flex-1 text-[7px]"
+                onClick={() => setShowExportModal(true)}
+              >
+                Export
               </Button>
             </div>
 
@@ -575,8 +942,11 @@ export function PhaseFrames({
           </CardContent>
         </Card>
 
-{/* Right — Drag-and-drop frame grid */}
-        <Card font="retro" className="flex flex-col border-border bg-card w-full lg:flex-1">
+        {/* Right — Drag-and-drop frame grid */}
+        <Card
+          font="retro"
+          className="flex flex-col border-border bg-card w-full lg:flex-1"
+        >
           <CardHeader className="pb-2 pt-3 px-4">
             <CardTitle className="text-[11px]">Frames</CardTitle>
             <CardDescription className="text-[8px]">
@@ -595,6 +965,16 @@ export function PhaseFrames({
             />
           </CardContent>
         </Card>
+        {showExportModal && (
+          <ExportModal
+            frames={activeFrames}
+            fps={fps}
+            onClose={() => setShowExportModal(false)}
+            onExportSpritesheet={handleExportSpritesheet}
+            onExportSpine={handleExportSpine}
+            onExportGif={handleExportGif}
+          />
+        )}
       </div>
     </>
   );

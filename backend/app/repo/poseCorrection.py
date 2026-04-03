@@ -39,7 +39,7 @@ OUTPUT_DIR = "./output"
 # ──────────────────────────────────────────────────────────
 # CORE MODULE (BYTES)
 # ──────────────────────────────────────────────────────────
-def pose_correct_bytes(image_bytes: bytes, animation_type: str) -> bytes:
+def pose_correct_bytes(image_bytes: bytes, animation_type: str, additional_prompt: str) -> bytes:
     """
     Repose image using Nano Banana.
 
@@ -54,6 +54,8 @@ def pose_correct_bytes(image_bytes: bytes, animation_type: str) -> bytes:
     client = genai.Client(api_key=GEMINI_API_KEY)
     img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
 
+    additional_prompt = f"Additional instruction from the user: {additional_prompt}"
+
     if animation_type == "running":
         prompt = POSE_PROMPT_RUNNING
     elif animation_type == "walking":
@@ -67,7 +69,7 @@ def pose_correct_bytes(image_bytes: bytes, animation_type: str) -> bytes:
         try:
             resp = client.models.generate_content(
                 model=MODEL,
-                contents=[prompt, img],
+                contents=[prompt, additional_prompt, img],
                 config=types.GenerateContentConfig(
                     response_modalities=["IMAGE"]
                 ),

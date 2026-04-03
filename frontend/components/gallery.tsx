@@ -17,6 +17,7 @@ import animation_4 from "@/assets/gallery/animation_4.gif";
 import animation_5 from "@/assets/gallery/animation_5.gif";
 import animation_6 from "@/assets/gallery/animation_6.gif";
 import animation_7 from "@/assets/gallery/animation_7.gif";
+import animation_8 from "@/assets/gallery/animation_8.gif";
 
 interface GalleryItem {
   name: string;
@@ -60,11 +61,16 @@ const showcaseItems: GalleryItem[] = [
     type: "Float",
     src: animation_6,
   },
-  // {
-  //   name: "Astral Spirit",
-  //   type: "Float",
-  //   src: animation_7,
-  // },
+  {
+    name: "Animation 7",
+    type: "Float",
+    src: animation_7,
+  },
+  {
+    name: "Animation 8",
+    type: "Float",
+    src: animation_8,
+  },
 ];
 
 export function Gallery() {

@@ -50,11 +50,10 @@ Guidelines:
 - Start with: 2D game character {action} animation, side view,
 - End with: on a plain white background.
 - Keep it as a single line.
-- Use a descriptive, visual storytelling style similar to the examples.
-- Only describe visible features from the image.
+- Use a descriptive, visual scientific style of the action similar to the examples.
 - Do not add new elements that are not present.
 
-Extra context: {extra if extra else "none"}
+User accepted prompt (Just refine it): {extra if extra else "none"}
 
 {examples}
 """
@@ -95,7 +94,7 @@ def generate_prompt_bytes(image_bytes, action, token, extra):
 
     print("This is the action:", action_word)
 
-    if action_word.strip() != "running":
+    if action_word.strip() != "running" and len(token) > 0:
         prompt_prefix = f"{token},"
 
     print(f"{prompt_prefix} {response.choices[0].message.content.strip()}".strip())

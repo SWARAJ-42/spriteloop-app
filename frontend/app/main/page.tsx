@@ -50,12 +50,14 @@ function PhaseUpload({
   onNext,
   postProcess,
   setPostProcess,
+  setAnimationPrompt,
   selected,
   setSelected,
 }: {
   onNext: (processedUrl: string, jobId: string) => void;
   postProcess: boolean;
   setPostProcess: (v: boolean) => void;
+  setAnimationPrompt: (v: string) => void;
   selected: string;
   setSelected: (v: string) => void;
 }) {
@@ -103,12 +105,15 @@ function PhaseUpload({
     setError(null);
 
     try {
-      const blob = await preGenerate({
+      const response = await preGenerate({
         file,
         pose_correction: poseCorrection,
         animation_type: selected,
         preprocess_prompt: prompt,
       });
+
+      const blob = response.blob
+      setAnimationPrompt(response.prompt)
 
       const url = URL.createObjectURL(blob);
 
@@ -143,7 +148,9 @@ function PhaseUpload({
     <div className="mx-auto h-fit w-full max-w-3xl">
       <Card font="retro" className="border-border bg-card">
         <CardHeader className="pb-2 pt-3 px-4">
-          <CardTitle className="text-[5px] lg:text-[11px]">Upload Image</CardTitle>
+          <CardTitle className="text-[5px] lg:text-[11px]">
+            Upload Image
+          </CardTitle>
           <CardDescription className="text-[8px]">
             Only PNG, JPG, or JPEG files are supported.
           </CardDescription>
@@ -163,7 +170,7 @@ function PhaseUpload({
                     : "border-border bg-background/30"
                 }`}
               >
-<input
+                <input
                   ref={fileInputRef}
                   type="file"
                   accept=".png,.jpg,.jpeg"
@@ -180,7 +187,9 @@ function PhaseUpload({
                 </span>
                 {file && (
                   <Badge font="retro" variant="secondary" className="mt-2">
-                    <span className="text-[7px]">{file.name.slice(0, 20)}...</span>
+                    <span className="text-[7px]">
+                      {file.name.slice(0, 20)}...
+                    </span>
                   </Badge>
                 )}
               </div>
@@ -199,51 +208,69 @@ function PhaseUpload({
 
             <div className="flex flex-col space-y-3 px-4 pb-2">
               {/* Pose Correction Toggle */}
-              <div className="flex items-center justify-between border border-border bg-background/30 px-3 py-2">
-                <div className="flex flex-col gap-0.5">
-                  <span className="retro text-[8px] text-foreground">
-                    Pose Correction (recommended) (
-                    <span className="text-[15px]">💰</span>5)
-                  </span>
-                  <span className="retro text-[7px] text-muted-foreground">
-                    Auto-align character to 2-D right pose before processing
-                  </span>
-                </div>
-                <button
-                  onClick={() => setPoseCorrection((prev) => !prev)}
-                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center border-2 transition-colors focus:outline-none ${
-                    poseCorrection
-                      ? "border-primary bg-primary/20"
-                      : "border-border bg-background/50"
-                  }`}
-                  role="switch"
-                  aria-checked={poseCorrection}
-                  aria-label="Toggle pose correction"
-                >
-                  <span
-                    className={`inline-block h-3 w-3 transform bg-current transition-transform retro text-[0px] ${
+              <div className={`flex ${poseCorrection ? "flex-1": ""} flex-col border border-border bg-background/30 px-3 py-2 gap-2`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="retro text-[8px] text-foreground">
+                      Pose Correction (recommended) (
+                      <span className="text-[15px]">💰</span>10)
+                    </span>
+                    <span className="retro text-[7px] text-muted-foreground">
+                      Auto-align character to 2-D right pose before processing
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setPoseCorrection((prev) => !prev)}
+                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center border-2 transition-colors focus:outline-none ${
                       poseCorrection
-                        ? "translate-x-4 text-primary"
-                        : "translate-x-0.5 text-muted-foreground"
+                        ? "border-primary bg-primary/20"
+                        : "border-border bg-background/50"
                     }`}
-                  />
-                </button>
+                    role="switch"
+                    aria-checked={poseCorrection}
+                    aria-label="Toggle pose correction"
+                  >
+                    <span
+                      className={`inline-block h-3 w-3 transform bg-current transition-transform retro text-[0px] ${
+                        poseCorrection
+                          ? "translate-x-4 text-primary"
+                          : "translate-x-0.5 text-muted-foreground"
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Preprocess Prompt */}
+                {poseCorrection && (
+                  <div className="flex flex-1 flex-col gap-1">
+                    <span className="retro text-[7px] text-muted-foreground">
+                      Preprocess Prompt (optional)
+                    </span>
+                    <textarea
+                      value={prompt}
+                      onChange={(e) => setPrompt(e.target.value)}
+                      placeholder="Describe how the character should be positioned..."
+                      className="h-full w-full border border-border bg-background/50 px-2 py-1.5 retro text-[8px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 resize-none"
+                      rows={2}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="flex flex-1 flex-col justify-between">
                 {/* Grid of animation types */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-2">
                   {ANIMATION_TYPES.map((anim) => (
                     <Button
                       key={anim.id}
                       onClick={() => setSelected(anim.id)}
-                      className={`flex flex-col items-center justify-center gap-2 border-2 p-4 transition-all retro text-[9px] h-[70px] hover:bg-background ${
+                      className={`flex flex-col items-center justify-center gap-1 border-2 p-2 transition-all retro text-[8px] h-[50px] hover:bg-background ${
                         selected === anim.id
                           ? "border-primary bg-primary/10  text-primary"
                           : "border-border bg-background/30 text-muted-foreground hover:border-primary/50"
                       }`}
                     >
-                      <anim.icon size={30} />
+                      <anim.icon size={18} />
                       <span>{anim.label}</span>
                     </Button>
                   ))}
@@ -284,7 +311,6 @@ function PhaseUpload({
                   )}
                 </div>
               </div>
-
             </div>
           </div>
 
@@ -309,6 +335,8 @@ function PhaseAnimate({
   jobId,
   postProcess,
   setPostProcess,
+  animationPrompt,
+  setAnimationPrompt,
   onNext,
   onBack,
   selected,
@@ -318,6 +346,8 @@ function PhaseAnimate({
   jobId: string;
   postProcess: boolean;
   setPostProcess: (v: boolean) => void;
+  animationPrompt: string,
+  setAnimationPrompt: (v: string) => void;
   onNext: (frames: string[]) => void;
   onBack: () => void;
   selected: string;
@@ -325,7 +355,6 @@ function PhaseAnimate({
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [prompt, setPrompt] = useState("");
 
   async function urlToBase64(url: string): Promise<string> {
     const res = await fetch(url);
@@ -351,7 +380,7 @@ function PhaseAnimate({
       const res = await generateAnimation({
         image_base64: base64,
         animation_type: selected,
-        additional_prompt: prompt,
+        additional_prompt: animationPrompt,
         post_process: postProcess,
       });
 
@@ -392,14 +421,14 @@ function PhaseAnimate({
       {/* Right — animation picker */}
       <Card font="retro" className="flex border-border bg-card">
         <CardHeader className="pb-2 pt-3 px-4">
-          <CardTitle className="text-[11px]">Choose Animation</CardTitle>
-          <CardDescription className="text-[8px]">
-            Select the animation type to generate
+          <CardTitle className="text-[11px]">Animation Configuration</CardTitle>
+          <CardDescription className="text-[10px]">
+            Selected animation <Badge className="mx-2">{selected}</Badge>
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col flex-1 justify-between space-y-4 px-4 pb-4">
           {/* Post-processing Toggle */}
-          <div className="flex items-center justify-between border border-border bg-background/30 px-3 py-2">
+          {/* <div className="flex items-center justify-between border border-border bg-background/30 px-3 py-2">
             <div className="flex flex-col gap-0.5">
               <span className="retro text-[8px] text-foreground">
                 Post Processing (<span className="text-[15px]">⚠️</span>may take
@@ -426,19 +455,19 @@ function PhaseAnimate({
                 }`}
               />
             </button>
-          </div>
+          </div> */}
           {/* Additional Prompt instructions */}
           <div className="flex flex-1 flex-col gap-1 border border-border bg-background/30 px-3 py-2">
-            <span className="retro text-[8px] text-foreground">
-              Additional prompt for custom animation (optional)
+            <span className="retro text-[12px] text-foreground">
+              Animation prompt
             </span>
 
             <textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder="Describe additional animation instructions"
+              value={animationPrompt}
+              onChange={(e) => setAnimationPrompt(e.target.value)}
+              placeholder="Describe animation instructions"
               rows={10}
-              className="retro text-[7px] w-full bg-background border border-border p-2 resize-none outline-none focus:border-primary"
+              className="h-full retro text-[7px] w-full bg-background border border-border p-2 resize-none outline-none focus:border-primary"
             />
 
             <span className="retro text-[7px] text-muted-foreground">
@@ -491,19 +520,20 @@ export default function MainPage() {
   const [processedImageUrl, setProcessedImageUrl] = useState("");
   const [jobId, setJobId] = useState("");
   const [frames, setFrames] = useState<string[]>([]);
-  const [postProcess, setPostProcess] = useState(true);
+  const [postProcess, setPostProcess] = useState(false);
   const [selected, setSelected] = useState<string>("");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMdScreen, setIsMdScreen] = useState(false);
-  
+  const [animationPrompt, setAnimationPrompt] = useState("")
+
   // Track screen size for responsive sidebar margin
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(min-width: 768px)');
+    const mediaQuery = window.matchMedia("(min-width: 768px)");
     setIsMdScreen(mediaQuery.matches);
-    
+
     const handler = (e: MediaQueryListEvent) => setIsMdScreen(e.matches);
-    mediaQuery.addEventListener('change', handler);
-    return () => mediaQuery.removeEventListener('change', handler);
+    mediaQuery.addEventListener("change", handler);
+    return () => mediaQuery.removeEventListener("change", handler);
   }, []);
 
   // Auth protection
@@ -530,7 +560,7 @@ export default function MainPage() {
     );
   }
 
-return (
+  return (
     <div className="relative min-h-screen nebula-bg">
       <div className="scanline-overlay absolute inset-0 z-0 pointer-events-none" />
 
@@ -542,12 +572,14 @@ return (
       {/* Main content - takes remaining space */}
       {/* On mobile (<md): always use 80px margin (sidebar is collapsed or overlay when expanded) */}
       {/* On desktop (md+): margin adjusts based on sidebar state */}
-      <div 
+      <div
         className="flex justify-center items-center relative z-10 min-h-screen transition-[margin] duration-300 ease-in-out"
-        style={{ 
-          marginLeft: isMdScreen 
-            ? (sidebarCollapsed ? '80px' : '350px') 
-            : '80px'
+        style={{
+          marginLeft: isMdScreen
+            ? sidebarCollapsed
+              ? "80px"
+              : "350px"
+            : "80px",
         }}
       >
         <div className="mx-auto max-w-5xl px-3 py-4 lg:px-5">
@@ -559,7 +591,7 @@ return (
 
             <h1 className="retro text-center text-lg text-foreground  md:text-3xl my-3">
               {phase === "upload" && "Upload & Configure"}
-              {phase === "animate" && "Choose Animation Type"}
+              {phase === "animate" && "Choose Animation Configuration"}
               {phase === "frames" && "Review Frames"}
             </h1>
 
@@ -632,6 +664,7 @@ return (
               postProcess={postProcess}
               setPostProcess={setPostProcess}
               selected={selected}
+              setAnimationPrompt={setAnimationPrompt}
               setSelected={setSelected}
               onNext={(url, id) => {
                 setProcessedImageUrl(url);
@@ -647,6 +680,8 @@ return (
               jobId={jobId}
               postProcess={postProcess}
               setPostProcess={setPostProcess}
+              animationPrompt={animationPrompt}
+              setAnimationPrompt={setAnimationPrompt}
               selected={selected}
               setSelected={setSelected}
               onBack={() => setPhase("upload")}

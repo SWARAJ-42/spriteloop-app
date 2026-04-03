@@ -178,7 +178,7 @@ You are an expert 2D sprite artist and animator. Your task is to repose the give
 STEP 1 — READ THE CHARACTER:
 Before posing, study the image carefully and identify:
 - What type of character is this? (human, zombie, robot, animal, monster, ghost, etc.)
-- What would a jump or leap look like for this character? (athletic, stiff, feral, floating, etc.)
+- What would a jump or leap look like for this character? (athletic, stiff, feral, floating etc.)
 - What equipment or items are they holding or wearing?
 - What are their unique physical traits? (extra limbs, unusual proportions, floating parts, etc.)
 

@@ -6,11 +6,6 @@ from PIL import Image
 from torchvision import transforms
 from transformers import AutoModelForImageSegmentation
 from scipy.ndimage import binary_erosion
-import threading
-
-_model = None
-_transform = None
-_model_lock = threading.Lock()
 
 MODEL_ID = "ZhengPeng7/BiRefNet_lite"
 
@@ -24,24 +19,17 @@ WHITE = np.array([255,255,255],dtype=np.uint8)
 # -----------------------------
 # Load segmentation model
 # -----------------------------
-def get_model():
-    global _model
+def load_model():
 
-    if _model is None:
-        with _model_lock:
-            if _model is None:
-                model = AutoModelForImageSegmentation.from_pretrained(
-                    MODEL_ID,
-                    trust_remote_code=True,
-                    device_map=None  # 🔥 IMPORTANT
-                )
+    model = AutoModelForImageSegmentation.from_pretrained(
+        MODEL_ID,
+        trust_remote_code=True
+    )
 
-                model = model.to("cpu")   # 🔥 CRITICAL
-                model.eval()
+    model.eval()
 
-                _model = model
+    return model
 
-    return _model
 
 # -----------------------------
 # Transform
@@ -57,29 +45,21 @@ def make_transform():
         )
     ])
 
-def get_transform():
-    global _transform
-
-    if _transform is None:
-        _transform = make_transform()
-
-    return _transform
 
 # -----------------------------
 # Get segmentation mask
 # -----------------------------
-def get_foreground_mask(img, model, transform):
+def get_foreground_mask(img,model,transform):
 
     arr = np.array(img.convert("RGB"))
 
     tensor = transform(Image.fromarray(arr)).unsqueeze(0)
 
-    tensor = tensor.to("cpu")  # 🔥 FIX
-
     with torch.no_grad():
+
         pred = model(tensor)[-1].sigmoid()[0,0]
 
-    pred = pred.cpu().numpy()  # 🔥 FIX
+    pred = pred.numpy()
 
     mask = Image.fromarray((pred*255).astype(np.uint8)).resize(
         img.size,
@@ -140,18 +120,14 @@ def crop_to_subject(img,mask):
 # Pad to square
 # -----------------------------
 def pad_to_square(img):
-    w, h = img.size
-    size = max(w, h)
 
-    canvas = Image.new("RGB", (size, size), (255, 255, 255))
+    w,h = img.size
 
-    # Horizontal: centered
-    x_offset = (size - w) // 2
+    size = max(w,h)
 
-    # Vertical: push image to bottom (padding only on top)
-    y_offset = size - h
+    canvas = Image.new("RGB",(size,size),(255,255,255))
 
-    canvas.paste(img, (x_offset, y_offset))
+    canvas.paste(img,((size-w)//2,(size-h)//2))
 
     return canvas
 
@@ -161,33 +137,42 @@ def pad_to_square(img):
 # -----------------------------
 def preprocess_sprite(image_bytes, pixel_art=True):
 
-    model = get_model()          # ✅ reuse
-    transform = get_transform()  # ✅ reuse
+    model = load_model()
+
+    transform = make_transform()
 
     img = Image.open(io.BytesIO(image_bytes)).convert("RGBA")
 
-    mask = get_foreground_mask(img, model, transform)
+    # 1 mask
+    mask = get_foreground_mask(img,model,transform)
 
-    # cropped_img, cropped_mask = crop_to_subject(img, mask)
+    # 2 crop
+    # cropped_img,cropped_mask = crop_to_subject(img,mask)
 
+    # 3 white background
     white_bg_img = apply_pure_white_background(
         img,
         mask
     )
 
+    # 4 square
     squared = pad_to_square(white_bg_img)
 
+    # 5 resize
     resample = Image.NEAREST if pixel_art else Image.LANCZOS
 
     final_img = squared.resize(
-        (TARGET_SIZE, TARGET_SIZE),
+        (TARGET_SIZE,TARGET_SIZE),
         resample=resample
     )
 
     buf = io.BytesIO()
-    final_img.save(buf, format="PNG")
+
+    final_img.save(buf,format="PNG")
 
     return buf.getvalue()
+
+
 # -----------------------------
 # CLI usage
 # -----------------------------

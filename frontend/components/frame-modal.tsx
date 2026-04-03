@@ -44,7 +44,17 @@ const GRID = IMG_SIZE / BLOCK; // 64 cells
 const CANVAS_PX = 448; // canvas render size
 const CELL = CANVAS_PX / GRID; // px per cell
 
-type PaintTool = "paint" | "eraser";
+type PaintTool = "paint" | "eraser" | "transparent-eraser";
+
+// Special value for transparent pixels
+const TRANSPARENT = "transparent";
+
+// ── Brush sizes (in grid cells) ────────────────────────────────
+const BRUSH_SIZES = [1, 2, 3, 4] as const;
+type BrushSize = (typeof BRUSH_SIZES)[number];
+
+// ── Time-based undo interval (ms) ──────────────────────────────
+const UNDO_INTERVAL_MS = 5000; // 5 seconds
 
 // ── Color helpers ──────────────────────────────────────────────
 function rgbToHex(r: number, g: number, b: number): string {
@@ -108,13 +118,17 @@ async function srcToGrid(src: string): Promise<{ grid: string[][]; originalWidth
       const off = document.createElement("canvas");
       off.width = IMG_SIZE;
       off.height = IMG_SIZE;
-      const ctx = off.getContext("2d")!;
+      const ctx = off.getContext("2d", { willReadFrequently: true })!;
+      // Clear canvas to ensure transparency is preserved (not composited onto existing pixels)
+      ctx.clearRect(0, 0, IMG_SIZE, IMG_SIZE);
       ctx.drawImage(img, 0, 0, IMG_SIZE, IMG_SIZE);
       const grid: string[][] = Array.from({ length: GRID }, (_, row) =>
         Array.from({ length: GRID }, (_, col) => {
           const px = col * BLOCK + Math.floor(BLOCK / 2);
           const py = row * BLOCK + Math.floor(BLOCK / 2);
-          const [r, g, b] = ctx.getImageData(px, py, 1, 1).data;
+          const [r, g, b, a] = ctx.getImageData(px, py, 1, 1).data;
+          // If pixel is mostly transparent, mark it as transparent
+          if (a < 128) return TRANSPARENT;
           return rgbToHex(r, g, b);
         }),
       );
@@ -149,19 +163,23 @@ async function paletteFromSrc(src: string): Promise<string[]> {
 }
 
 /** Render the grid back to a PNG data-URL at the specified dimensions (defaults to original IMG_SIZE) */
-function gridToDataUrl(grid: string[][], outputWidth: number = IMG_SIZE, outputHeight: number = IMG_SIZE): string {
+function gridToDataUrl(grid: string[][], outputWidth: number, outputHeight: number): string {
   const off = document.createElement("canvas");
   off.width = outputWidth;
   off.height = outputHeight;
   const ctx = off.getContext("2d")!;
   
-  // Calculate block size based on output dimensions
+  // Ensure the output starts completely transparent
+  ctx.clearRect(0, 0, outputWidth, outputHeight);
+  
   const blockWidth = outputWidth / GRID;
   const blockHeight = outputHeight / GRID;
   
   for (let row = 0; row < GRID; row++) {
     for (let col = 0; col < GRID; col++) {
-      ctx.fillStyle = grid[row][col];
+      const cellColor = grid[row][col];
+      if (cellColor === TRANSPARENT) continue; // Skip drawing to keep transparent
+      ctx.fillStyle = cellColor;
       ctx.fillRect(col * blockWidth, row * blockHeight, blockWidth, blockHeight);
     }
   }
@@ -216,17 +234,20 @@ const canvasRef = useRef<HTMLCanvasElement>(null);
   const [grid, setGrid] = useState<string[][] | null>(null);
   const [originalGrid, setOriginalGrid] = useState<string[][] | null>(null);
   const [palette, setPalette] = useState<string[]>([]);
-  const [selectedColor, setSelectedColor] = useState("#000000");
+const [selectedColor, setSelectedColor] = useState("#000000");
   const [tool, setTool] = useState<PaintTool>("paint");
+  const [brushSize, setBrushSize] = useState<BrushSize>(1);
   const [isPainting, setIsPainting] = useState(false);
   const [loading, setLoading] = useState(true);
   // Store original image dimensions to preserve size on save
   const [originalDimensions, setOriginalDimensions] = useState<{ width: number; height: number }>({ width: IMG_SIZE, height: IMG_SIZE });
   
-  // Undo/Redo history
+  // Undo/Redo history with time-based grouping
   const [history, setHistory] = useState<string[][][]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const isUndoRedoAction = useRef(false);
+  const lastHistoryTime = useRef<number>(0);
+  const pendingChanges = useRef<string[][] | null>(null);
 
 // Load grid + palette
   useEffect(() => {
@@ -260,7 +281,7 @@ const canvasRef = useRef<HTMLCanvasElement>(null);
     };
   }, [src]);
 
-  // Track grid changes for undo/redo
+// Time-based undo: commit pending changes after 5 seconds of inactivity
   useEffect(() => {
     if (!grid || isUndoRedoAction.current) {
       isUndoRedoAction.current = false;
@@ -268,15 +289,29 @@ const canvasRef = useRef<HTMLCanvasElement>(null);
     }
     
     // Don't add to history if it's the same as the current state
-    if (history.length > 0 && historyIndex >= 0) {
+    if (history.length > 0 && historyIndex >= 0 && historyIndex < history.length) {
       const currentState = history[historyIndex];
-      const isSame = currentState.every((row, r) => 
-        row.every((cell, c) => cell === grid[r][c])
-      );
-      if (isSame) return;
+      if (currentState) {
+        const isSame = currentState.every((row, r) => 
+          row.every((cell, c) => cell === grid[r][c])
+        );
+        if (isSame) return;
+      }
     }
     
-    // Add new state to history, removing any future states
+    const now = Date.now();
+    const timeSinceLastHistory = now - lastHistoryTime.current;
+    
+    // If within the 5-second window, just track pending changes
+    if (timeSinceLastHistory < UNDO_INTERVAL_MS && lastHistoryTime.current > 0) {
+      pendingChanges.current = grid.map(row => [...row]);
+      return;
+    }
+    
+    // Either first change or outside the time window - commit to history
+    lastHistoryTime.current = now;
+    pendingChanges.current = null;
+    
     setHistory(prev => {
       const newHistory = prev.slice(0, historyIndex + 1);
       newHistory.push(grid.map(row => [...row]));
@@ -285,7 +320,30 @@ const canvasRef = useRef<HTMLCanvasElement>(null);
       return newHistory;
     });
     setHistoryIndex(prev => Math.min(prev + 1, 49));
-  }, [grid]);
+  }, [grid, history, historyIndex]);
+
+  // Commit pending changes after inactivity
+  useEffect(() => {
+    if (!pendingChanges.current) return;
+    
+    const timeout = setTimeout(() => {
+      if (pendingChanges.current) {
+        const pendingGrid = pendingChanges.current;
+        pendingChanges.current = null;
+        lastHistoryTime.current = Date.now();
+        
+        setHistory(prev => {
+          const newHistory = prev.slice(0, historyIndex + 1);
+          newHistory.push(pendingGrid);
+          if (newHistory.length > 50) newHistory.shift();
+          return newHistory;
+        });
+        setHistoryIndex(prev => Math.min(prev + 1, 49));
+      }
+    }, UNDO_INTERVAL_MS);
+    
+    return () => clearTimeout(timeout);
+  }, [grid, historyIndex]);
 
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex < history.length - 1;
@@ -311,10 +369,29 @@ const canvasRef = useRef<HTMLCanvasElement>(null);
     if (!grid || !canvasRef.current) return;
     const ctx = canvasRef.current.getContext("2d")!;
     ctx.clearRect(0, 0, CANVAS_PX, CANVAS_PX);
+    
+    // Draw checkerboard pattern for transparent pixels
+    const checkerSize = CELL / 2;
     for (let row = 0; row < GRID; row++) {
       for (let col = 0; col < GRID; col++) {
-        ctx.fillStyle = grid[row][col];
-        ctx.fillRect(col * CELL, row * CELL, CELL, CELL);
+        const cellColor = grid[row][col];
+        if (cellColor === TRANSPARENT) {
+          // Draw checkerboard pattern for transparent cells
+          for (let cy = 0; cy < 2; cy++) {
+            for (let cx = 0; cx < 2; cx++) {
+              ctx.fillStyle = (cx + cy) % 2 === 0 ? "#333333" : "#555555";
+              ctx.fillRect(
+                col * CELL + cx * checkerSize,
+                row * CELL + cy * checkerSize,
+                checkerSize,
+                checkerSize
+              );
+            }
+          }
+        } else {
+          ctx.fillStyle = cellColor;
+          ctx.fillRect(col * CELL, row * CELL, CELL, CELL);
+        }
       }
     }
     // Subtle cell grid overlay
@@ -332,11 +409,17 @@ const canvasRef = useRef<HTMLCanvasElement>(null);
     }
   }, [grid]);
 
-  // Keyboard shortcuts (b = paint, e = eraser, z = undo, y = redo, arrows = navigate)
+// Keyboard shortcuts (b = paint, e = eraser, t = transparent eraser, 1-4 = brush size, z = undo, y = redo, arrows = navigate)
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "b" || e.key === "B") setTool("paint");
       if (e.key === "e" || e.key === "E") setTool("eraser");
+      if (e.key === "t" || e.key === "T") setTool("transparent-eraser");
+      // Brush size shortcuts (1-4)
+      if (e.key >= "1" && e.key <= "4" && !e.ctrlKey && !e.metaKey) {
+        const size = parseInt(e.key) as BrushSize;
+        setBrushSize(size);
+      }
       if ((e.ctrlKey || e.metaKey) && e.key === "z") {
         e.preventDefault();
         handleUndo();
@@ -356,7 +439,7 @@ const canvasRef = useRef<HTMLCanvasElement>(null);
     return () => window.removeEventListener("keydown", handler);
   }, [handleUndo, handleRedo, frameIndex, totalFrames, onNavigate]);
 
-  const paintCell = useCallback(
+const paintCell = useCallback(
     (
       e:
         | React.MouseEvent<HTMLCanvasElement>
@@ -370,20 +453,38 @@ const canvasRef = useRef<HTMLCanvasElement>(null);
         "touches" in e ? e.touches[0].clientY : e.clientY;
       const scaleX = CANVAS_PX / rect.width;
       const scaleY = CANVAS_PX / rect.height;
-      const col = Math.floor(((clientX - rect.left) * scaleX) / CELL);
-      const row = Math.floor(((clientY - rect.top) * scaleY) / CELL);
-      if (col < 0 || col >= GRID || row < 0 || row >= GRID) return;
-      // Eraser uses white color (transparent effect)
-      const newColor = tool === "eraser" ? "#ffffff" : selectedColor;
-      if (grid[row][col] === newColor) return;
+      const centerCol = Math.floor(((clientX - rect.left) * scaleX) / CELL);
+      const centerRow = Math.floor(((clientY - rect.top) * scaleY) / CELL);
+      
+      // Eraser uses white color, transparent eraser removes pixel entirely
+      const newColor = tool === "eraser" ? "#ffffff" : tool === "transparent-eraser" ? TRANSPARENT : selectedColor;
+      
+      // Calculate brush offset for centering
+      const offset = Math.floor(brushSize / 2);
+      
       setGrid((prev) => {
         if (!prev) return prev;
         const next = prev.map((r) => [...r]);
-        next[row][col] = newColor;
-        return next;
+        let hasChanges = false;
+        
+        // Paint all cells within the brush size
+        for (let dr = 0; dr < brushSize; dr++) {
+          for (let dc = 0; dc < brushSize; dc++) {
+            const row = centerRow - offset + dr;
+            const col = centerCol - offset + dc;
+            if (col >= 0 && col < GRID && row >= 0 && row < GRID) {
+              if (next[row][col] !== newColor) {
+                next[row][col] = newColor;
+                hasChanges = true;
+              }
+            }
+          }
+        }
+        
+        return hasChanges ? next : prev;
       });
     },
-    [grid, selectedColor, tool],
+    [grid, selectedColor, tool, brushSize],
   );
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -432,7 +533,7 @@ const handleApplyClick = () => {
             Paint
           </button>
           <button
-            title="Eraser (E)"
+            title="Eraser (E) - Paints white"
             onClick={() => setTool("eraser")}
             className={`flex items-center gap-1.5 px-3 py-1.5 border retro text-[8px] transition-colors ${
               tool === "eraser"
@@ -443,6 +544,48 @@ const handleApplyClick = () => {
             <Eraser size={11} />
             Eraser
           </button>
+          <button
+            title="Transparent Eraser (T) - Removes pixels"
+            onClick={() => setTool("transparent-eraser")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 border retro text-[8px] transition-colors ${
+              tool === "transparent-eraser"
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+            }`}
+          >
+            <div className="relative w-[11px] h-[11px]">
+              <Eraser size={11} className="absolute inset-0" />
+              <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-[conic-gradient(#333_25%,#555_25%,#555_50%,#333_50%,#333_75%,#555_75%)] bg-[length:4px_4px] border border-current" />
+            </div>
+            Alpha
+          </button>
+          
+          <div className="w-px h-5 bg-border mx-1" />
+          
+          {/* Brush Size Selector */}
+          <div className="flex items-center gap-1">
+            <span className="retro text-[7px] text-muted-foreground mr-1">Size:</span>
+            {BRUSH_SIZES.map((size) => (
+              <button
+                key={size}
+                title={`Brush size ${size}x${size}`}
+                onClick={() => setBrushSize(size)}
+                className={`relative flex items-center justify-center w-6 h-6 border retro text-[8px] transition-colors ${
+                  brushSize === size
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                }`}
+              >
+                <div 
+                  className="bg-current"
+                  style={{
+                    width: `${size * 3 + 2}px`,
+                    height: `${size * 3 + 2}px`,
+                  }}
+                />
+              </button>
+            ))}
+          </div>
           
           <div className="w-px h-5 bg-border mx-1" />
           
@@ -623,11 +766,13 @@ const handleApplyClick = () => {
           )}
         </div>
 
-        {/* Keyboard hints */}
+{/* Keyboard hints */}
         <div className="flex flex-col gap-1 retro text-[7px] text-muted-foreground/40 mt-auto">
           <span>B — paint</span>
-          <span>E — eraser</span>
-          <span>Ctrl+Z — undo</span>
+          <span>E — eraser (white)</span>
+          <span>T — alpha erase</span>
+          <span>1-4 — brush size</span>
+          <span>Ctrl+Z — undo (5s batch)</span>
           <span>Ctrl+Y — redo</span>
           <span>Arrow keys — navigate</span>
           <span>Esc — back</span>

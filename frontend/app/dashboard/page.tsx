@@ -294,16 +294,6 @@ return (
                     >
                       Edit
                     </Button>
-
-                    <Button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        window.open(gen.gif_url);
-                      }}
-                      className="w-full bg-cyan-900/40 hover:bg-cyan-800/60 text-cyan-300 border-cyan-900 h-7 px-2 text-[10px]"
-                    >
-                      Download
-                    </Button>
                   </div>
                 );
               })}
