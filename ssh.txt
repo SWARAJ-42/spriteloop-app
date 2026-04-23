@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+# local git identity (only affects this repo)
+git config user.name "SWARAJ-42"
+git config user.email "biswalswaraj88@kgpian.iitkgp.ac.in"
+
+# create local ssh folder inside current directory
+mkdir -p .ssh
+
+# generate key INSIDE current folder
+ssh-keygen -t ed25519 -C "biswalswaraj88@kgpian.iitkgp.ac.in" -f .ssh/github_local_key -N ""
+
+# start agent and add key
+eval "$(ssh-agent -s)"
+ssh-add .ssh/github_local_key
+
+# create SSH config INSIDE current folder
+cat > .ssh/config <<EOF
+Host github-local
+  HostName github.com
+  User git
+  IdentityFile $(pwd)/.ssh/github_local_key
+  IdentitiesOnly yes
+EOF
+
+# test connection using local config only
+ssh -F .ssh/config -T github-local

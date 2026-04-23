@@ -5,14 +5,14 @@ import { signInWithGoogle, logout } from "@/app/lib/auth";
 import { auth } from "@/app/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/8bit/button";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
   CardDescription,
-} from "@/components/ui/8bit/card";
+} from "@/components/ui/card";
 import { Gamepad2, LogIn, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logo from "@/assets/logo.png";

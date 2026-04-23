@@ -20,7 +20,8 @@ app.add_middleware(
         "http://localhost:3000",
         "http://127.0.0.1:3000",
         "http://localhost",
-        "https://spriteloop.eastus2.cloudapp.azure.com"
+        "https://spriteloop.eastus2.cloudapp.azure.com",
+        "https://spriteloopai.eastus2.cloudapp.azure.com",
     ],
     allow_credentials=True,
     allow_methods=["*"],
